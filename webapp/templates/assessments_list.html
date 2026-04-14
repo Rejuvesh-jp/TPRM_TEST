@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% set active_page = "assessments" %}
+{% block title %}All Assessments{% endblock %}
+{% block page_title %}<i class="bi bi-clipboard2-data-fill me-2"></i>Assessments{% endblock %}
+
+{% block content %}
+<div class="row mb-4 align-items-center fade-in">
+    <div class="col-md-8">
+        <p class="text-muted mb-0">{{ assessments|length }} assessment(s) found</p>
+    </div>
+    <div class="col-md-4 text-md-end">
+        <a href="/assessments/new" class="action-btn action-btn-primary" style="display:inline-flex">
+            <i class="bi bi-plus-circle-fill me-2"></i>New Assessment
+        </a>
+    </div>
+</div>
+
+<div class="glass-card fade-in" style="animation-delay:.1s">
+    <div class="glass-card-body p-0">
+        {% if assessments|length > 0 %}
+        <div class="table-responsive">
+            <table class="table modern-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th>Vendor ID</th>
+                        <th>Division</th>
+                        <th>SPOC Email</th>
+                        <th>Engagement</th>
+                        <th>Risk Rating</th>
+                        <th>Status</th>
+                        <th>Gaps</th>
+                        <th>Recommendations</th>
+                        <th>Mode</th>
+                        <th>Created</th>
+                        <th>Duration</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in assessments %}
+                    <tr>
+                        <td>
+                            <a href="/assessments/{{ a.id }}" class="vendor-link">
+                                <span class="vendor-avatar">{{ a.vendor_name[0] | upper }}</span>
+                                {{ a.vendor_name }}
+                            </a>
+                            <span class="badge bg-primary-subtle text-primary ms-1" style="font-size:.7rem">v{{ a.version if a.version else 1 }}</span>
+                        </td>
+                        <td>
+                            <span class="text-muted small font-monospace">{{ a.vendor_id if a.vendor_id else '—' }}</span>
+                        </td>
+                        <td>
+                            <span class="small text-muted">{{ a.division if a.division else '—' }}</span>
+                        </td>
+                        <td>
+                            <span class="small text-muted font-monospace">{{ a.spoc_email if a.spoc_email else '—' }}</span>
+                        </td>
+                        <td>
+                            {% if a.nature_of_engagement == 'high' %}
+                            <span class="badge bg-danger-subtle text-danger">High</span>
+                            {% elif a.nature_of_engagement == 'medium' %}
+                            <span class="badge bg-warning-subtle text-warning">Medium</span>
+                            {% elif a.nature_of_engagement == 'low' %}
+                            <span class="badge bg-success-subtle text-success">Low</span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                            {% if a.pre_assessment_scores %}
+                            <span class="d-inline-block" tabindex="0" data-bs-toggle="popover" data-bs-trigger="click"
+                                  data-bs-html="true" data-bs-placement="right"
+                                  data-bs-title="Pre-Assessment ({{ a.pre_assessment_scores.total_score }} pts)"
+                                  data-bs-content="{% for r in a.pre_assessment_scores.responses %}{% if r.answer == 'yes' %}<div class='small mb-1'>Q{{ r.q }}. +{{ r.score }}pts</div>{% endif %}{% endfor %}<hr class='my-1'><strong>Total: {{ a.pre_assessment_scores.total_score }}</strong>">
+                                <i class="bi bi-info-circle text-info" style="cursor:pointer;font-size:.75rem"></i>
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a.risk_rating == 'high' %}
+                            <span class="badge rounded-pill bg-danger px-3 py-1"><i class="bi bi-arrow-up-circle-fill me-1"></i>High</span>
+                            {% elif a.risk_rating == 'medium' %}
+                            <span class="badge rounded-pill bg-warning text-dark px-3 py-1"><i class="bi bi-dash-circle-fill me-1"></i>Medium</span>
+                            {% elif a.risk_rating == 'low' %}
+                            <span class="badge rounded-pill bg-success px-3 py-1"><i class="bi bi-arrow-down-circle-fill me-1"></i>Low</span>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a.status == 'completed' %}
+                            <span class="status-pill status-completed"><i class="bi bi-check-circle-fill"></i> Completed</span>
+                            {% elif a.status == 'running' %}
+                            <span class="status-pill status-running"><i class="bi bi-arrow-repeat spin"></i> Running</span>
+                            <a href="/assessments/{{ a.id }}" class="btn btn-sm btn-outline-warning ms-1 py-0 px-2" style="font-size:.72rem">
+                                <i class="bi bi-speedometer2 me-1"></i>View Progress
+                            </a>
+                            {% elif a.status == 'pending' %}
+                            <span class="status-pill status-pending"><i class="bi bi-clock"></i> Pending</span>
+                            {% elif a.status == 'failed' %}
+                            <span class="status-pill status-failed"><i class="bi bi-x-circle-fill"></i> Failed</span>
+                            {% endif %}
+                        </td>
+                        <td>{% if a.summary %}{{ a.summary.total_gaps }}{% else %}—{% endif %}</td>
+                        <td>{% if a.summary %}{{ a.summary.total_recommendations }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% if a.use_openai %}
+                            <span class="mode-pill mode-openai"><i class="bi bi-cpu me-1"></i>OpenAI</span>
+                            {% else %}
+                            <span class="mode-pill mode-mock"><i class="bi bi-gear me-1"></i>Mock</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ a.created_at[:16] | replace('T', ' ') }}</td>
+                        <td class="small">
+                            {% if a.summary and a.summary.elapsed_seconds %}
+                            {{ a.summary.elapsed_seconds }}s
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="/assessments/{{ a.id }}" class="icon-btn" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% if a.status == 'failed' %}
+                                <button class="icon-btn" title="Retry Pipeline" onclick="retryAssessment('{{ a.id }}')">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                {% endif %}
+                                <button class="icon-btn icon-btn-danger" title="Delete"
+                                        onclick="deleteAssessment('{{ a.id }}', this)">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state py-5">
+            <i class="bi bi-inbox"></i>
+            <p>No assessments yet.</p>
+            <a href="/assessments/new" class="action-btn action-btn-primary" style="display:inline-flex">
+                <i class="bi bi-plus-circle me-2"></i>Create Your First Assessment
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function deleteAssessment(id, btn) {
+    if (!confirm('Delete this assessment? This cannot be undone.')) return;
+    const row = btn ? btn.closest('tr') : null;
+    const resp = await fetch(`/api/assessments/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (!resp.ok) {
+        alert('Failed to delete assessment: ' + (await resp.text()));
+        return;
+    }
+    if (row) {
+        row.style.transition = 'opacity 0.2s';
+        row.style.opacity = '0';
+        setTimeout(() => row.remove(), 200);
+    }
+}
+
+async function retryAssessment(id) {
+    if (!confirm('Retry the pipeline for this assessment? It will re-run from the beginning.')) return;
+    const resp = await fetch(`/api/assessments/${id}/run`, { method: 'POST', credentials: 'same-origin' });
+    if (!resp.ok) { alert('Failed to start: ' + (await resp.text())); return; }
+    window.location.href = `/assessments/${id}`;
+}
+
+// Initialize popovers for pre-assessment score breakdown
+document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+    new bootstrap.Popover(el, { sanitize: false });
+});
+</script>
+{% endblock %}

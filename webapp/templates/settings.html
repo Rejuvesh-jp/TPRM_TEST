@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% set active_page = "settings" %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}<i class="bi bi-gear-fill me-2"></i>Settings{% endblock %}
+
+{% block content %}
+<div class="row mb-4 fade-in">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb custom-breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item active">Settings</li>
+            </ol>
+        </nav>
+        <p class="text-muted mb-0">
+            Configure pipeline behaviour and view platform information.
+            {% if user and user.role == 'admin' %}
+            Changes to feature flags take effect immediately &mdash; no restart required.
+            {% else %}
+            Feature flag toggles are available to administrators only.
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    {# ── Pipeline Feature Flags ─────────────────────────────────────────── #}
+    <div class="col-12">
+        <div class="glass-card fade-in" style="animation-delay:.05s">
+            <div class="glass-card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-sliders2 me-2"></i>Pipeline Feature Flags</span>
+                <span class="badge bg-info text-dark">Live &mdash; no restart needed</span>
+            </div>
+            <div class="glass-card-body">
+                <p class="text-muted small mb-3">
+                    These flags control optional post-processing steps in the assessment pipeline.
+                    Values are persisted to <code>config/pipeline_settings.json</code> and survive server restarts.
+                    Environment variables (<code>.env</code>) set the baseline; the saved file takes precedence.
+                </p>
+                <div class="row g-3">
+
+                    {# ── LLM Quality Judge ── #}
+                    <div class="col-md-6">
+                        <div class="p-3 rounded h-100" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-robot fs-3 text-info"></i>
+                                    <div>
+                                        <div class="fw-semibold">LLM Quality Judge</div>
+                                        <div class="text-muted" style="font-size:.75rem">Post-draft review pass</div>
+                                    </div>
+                                </div>
+                                {% if user and user.role == 'admin' %}
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="toggle-judge" style="width:2.8em;height:1.4em;cursor:pointer"
+                                           {% if llm_judge_enabled %}checked{% endif %}
+                                           onchange="updateSetting('llm_judge_enabled', this.checked, this)">
+                                </div>
+                                {% else %}
+                                <span class="badge {% if llm_judge_enabled %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if llm_judge_enabled %}ON{% else %}OFF{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <p class="text-muted small mb-3">
+                                After the draft assessment is produced, a second LLM pass reviews it for:
+                                <ul class="mb-0 mt-1" style="font-size:.8rem">
+                                    <li>Duplicate gaps (same root cause, different wording)</li>
+                                    <li>Unsupported gaps (no questionnaire / artifact backing)</li>
+                                    <li>Severity misalignments</li>
+                                    <li>Vague recommendation wording</li>
+                                </ul>
+                                Safe corrections are applied automatically to the final report.
+                            </p>
+
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <code class="small" id="judge-env-label">LLM_JUDGE_ENABLED={% if llm_judge_enabled %}true{% else %}false{% endif %}</code>
+                                <span id="judge-status" class="badge {% if llm_judge_enabled %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if llm_judge_enabled %}ON{% else %}OFF{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# ── Version Report Cache ── #}
+                    <div class="col-md-6">
+                        <div class="p-3 rounded h-100" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-lightning-charge fs-3 text-warning"></i>
+                                    <div>
+                                        <div class="fw-semibold">Version Report Cache</div>
+                                        <div class="text-muted" style="font-size:.75rem">Whole-pipeline fingerprint bypass</div>
+                                    </div>
+                                </div>
+                                {% if user and user.role == 'admin' %}
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="toggle-cache" style="width:2.8em;height:1.4em;cursor:pointer"
+                                           {% if llm_cache_enabled %}checked{% endif %}
+                                           onchange="updateSetting('llm_cache_enabled', this.checked, this)">
+                                </div>
+                                {% else %}
+                                <span class="badge {% if llm_cache_enabled %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if llm_cache_enabled %}ON{% else %}OFF{% endif %}
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            <p class="text-muted small mb-3">
+                                Fingerprints the entire assessment input (file bytes, evidence chunk IDs,
+                                prompt versions, model, judge state). If the fingerprint matches a previous
+                                <strong>completed</strong> assessment for the same vendor, the entire
+                                pipeline is bypassed and that report is returned instantly &mdash;
+                                no LLM calls, no embeddings, no OCR.
+                            </p>
+
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <code class="small" id="cache-env-label">LLM_CACHE_ENABLED={% if llm_cache_enabled %}true{% else %}false{% endif %}</code>
+                                <span id="cache-status" class="badge {% if llm_cache_enabled %}bg-success{% else %}bg-secondary{% endif %}">
+                                    {% if llm_cache_enabled %}ON{% else %}OFF{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>{# /row #}
+
+                {# ── Three-layer cache explanation ── #}
+                <div class="mt-4">
+                    <div class="text-muted small text-uppercase fw-semibold mb-2" style="letter-spacing:.05em">
+                        How the cache layers work
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0" style="color:inherit;font-size:.82rem">
+                            <thead>
+                                <tr style="border-color:rgba(255,255,255,.1)">
+                                    <th class="text-muted fw-normal" style="width:22%">Layer</th>
+                                    <th class="text-muted fw-normal" style="width:15%">State</th>
+                                    <th class="text-muted fw-normal">What it caches</th>
+                                    <th class="text-muted fw-normal" style="width:20%">Controlled by</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="border-color:rgba(255,255,255,.07)">
+                                    <td><i class="bi bi-2-circle text-info me-1"></i>Embedding Cache</td>
+                                    <td><span class="badge bg-success">Always ON</span></td>
+                                    <td>Text embedding vectors keyed by SHA-256 of the input text. Avoids re-calling the embedding API for the same chunks.</td>
+                                    <td class="text-muted">Always active (not configurable)</td>
+                                </tr>
+                                <tr style="border-color:rgba(255,255,255,.07)">
+                                    <td><i class="bi bi-3-circle text-warning me-1"></i>Version Report Cache</td>
+                                    <td>
+                                        {% if llm_cache_enabled %}
+                                        <span class="badge bg-success">ON</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">OFF</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>If all input files produce the same fingerprint as a prior completed assessment for the same vendor, the <strong>entire pipeline is skipped</strong> and the previous report is returned. No LLM calls, no OCR, no embeddings.</td>
+                                    <td><code class="small">LLM_CACHE_ENABLED</code></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Platform Information ──────────────────────────────────────────────── #}
+    <div class="col-lg-6">
+        <div class="glass-card fade-in" style="animation-delay:.1s">
+            <div class="glass-card-header">
+                <i class="bi bi-info-circle me-2"></i>Platform Information
+            </div>
+            <div class="glass-card-body">
+                <table class="table table-sm mb-0" style="color:inherit">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted" style="width:40%">Version</td>
+                            <td><code>{{ app_version }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">LLM Model</td>
+                            <td><code>{{ llm_model }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Embedding Model</td>
+                            <td><code>{{ embedding_model }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">SSO</td>
+                            <td>
+                                {% if sso_enabled %}
+                                <span class="badge bg-success">Enabled</span>
+                                <span class="text-muted small ms-1">{{ sso_tenant }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Disabled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Debug Mode</td>
+                            <td>
+                                {% if debug_mode %}
+                                <span class="badge bg-warning text-dark">ON</span>
+                                {% else %}
+                                <span class="badge bg-secondary">OFF</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {# ── LLM Cache Controls ─────────────────────────────────────────────────── #}
+    {% if user and user.role == 'admin' %}
+    <div class="col-lg-6">
+        <div class="glass-card fade-in" style="animation-delay:.15s">
+            <div class="glass-card-header">
+                <i class="bi bi-database-x me-2"></i>Cache Management
+            </div>
+            <div class="glass-card-body">
+                <p class="text-muted small mb-3">
+                    The prompt-level LLM cache stores model responses in the database to
+                    ensure deterministic outputs across re-runs. Clear it only when prompt
+                    templates have been edited and you want fresh LLM responses.
+                </p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-sm btn-outline-warning" onclick="clearLlmCache()">
+                        <i class="bi bi-trash3 me-1"></i>Clear LLM Prompt Cache
+                    </button>
+                </div>
+                <div id="cache-clear-result" class="mt-2 small text-muted d-none"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>{# /row #}
+
+{# Status Toast #}
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+    <div id="status-toast" class="toast align-items-center border-0" role="alert"
+         style="background:#1e293b;border:1px solid rgba(255,255,255,.1)">
+        <div class="d-flex">
+            <div class="toast-body text-white" id="toast-message"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, type) {
+    const toast = document.getElementById('status-toast');
+    const body  = document.getElementById('toast-message');
+    const icon  = type === 'success' ? 'check-circle-fill text-success' : 'exclamation-triangle-fill text-warning';
+    body.innerHTML = `<i class="bi bi-${icon} me-2"></i>${msg}`;
+    new bootstrap.Toast(toast, {delay: 4000}).show();
+}
+
+async function updateSetting(key, value, toggle) {
+    toggle.disabled = true;
+    try {
+        const resp = await fetch('/api/settings/pipeline', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({[key]: value}),
+            credentials: 'same-origin',
+        });
+        if (!resp.ok) {
+            const e = await resp.json();
+            throw new Error(e.detail || 'Update failed');
+        }
+        const { settings } = await resp.json();
+        _syncLabel('judge', settings.llm_judge_enabled);
+        _syncLabel('cache', settings.llm_cache_enabled);
+        const labels = {
+            'llm_judge_enabled': 'LLM Quality Judge',
+            'llm_cache_enabled': 'Version Report Cache',
+        };
+        const label = labels[key] || key;
+        showToast(`${label} turned ${value ? 'ON' : 'OFF'}.`, 'success');
+    } catch (err) {
+        toggle.checked = !value;
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        toggle.disabled = false;
+    }
+}
+
+function _syncLabel(prefix, isOn) {
+    const toggle = document.getElementById(`toggle-${prefix}`);
+    const badge  = document.getElementById(`${prefix}-status`);
+    const label  = document.getElementById(`${prefix}-env-label`);
+    const envKeys = {
+        'judge': 'LLM_JUDGE_ENABLED',
+        'cache': 'LLM_CACHE_ENABLED',
+    };
+    const envKey = envKeys[prefix] || prefix.toUpperCase();
+    if (toggle) toggle.checked = isOn;
+    if (badge)  { badge.textContent = isOn ? 'ON' : 'OFF'; badge.className = `badge ${isOn ? 'bg-success' : 'bg-secondary'}`; }
+    if (label)  label.textContent = `${envKey}=${isOn ? 'true' : 'false'}`;
+}
+</script>
+{% endblock %}

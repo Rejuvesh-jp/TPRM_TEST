@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% set active_page = "new" %}
+{% block title %}New Assessment{% endblock %}
+{% block page_title %}<i class="bi bi-plus-circle-fill me-2"></i>New Assessment{% endblock %}
+
+{% block content %}
+<div class="row mb-4 fade-in">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb custom-breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item active">New Assessment</li>
+            </ol>
+        </nav>
+        <p class="text-muted mb-0">Upload vendor documents to run a Third-Party Risk Management assessment.</p>
+    </div>
+</div>
+
+<form id="assessment-form" enctype="multipart/form-data">
+    <div class="row g-4">
+        <!-- Left Column: Configuration -->
+        <div class="col-lg-4">
+            <div class="glass-card mb-4 fade-in" style="animation-delay:.1s">
+                <div class="glass-card-header">
+                    <h5><i class="bi bi-gear-fill me-2"></i>Configuration</h5>
+                </div>
+                <div class="glass-card-body">
+                    <div class="mb-3">
+                        <label for="vendor_id_lookup" class="form-label-custom">Vendor ID <span class="text-muted small fw-normal">(optional — enter to auto-fill existing vendor)</span></label>
+                        <div class="input-group">
+                            <input type="text" class="form-control custom-input" id="vendor_id_lookup"
+                                   placeholder="e.g. VND-093FF9" maxlength="20"
+                                   oninput="this.value=this.value.toUpperCase()">
+                            <button type="button" class="btn btn-outline-secondary" id="vendor-lookup-btn" onclick="lookupVendor()">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                        <div id="vendor-lookup-result" class="mt-1 small d-none"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="vendor_name" class="form-label-custom">Vendor Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control custom-input" id="vendor_name" name="vendor_name"
+                               placeholder="e.g. Adobe, Microsoft, Salesforce" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="division" class="form-label-custom">Division <span class="text-danger">*</span></label>
+                        <select class="form-select custom-input" id="division" name="division" required>
+                            <option value="" disabled selected>Select division...</option>
+                            <option>Watches and Wearables Division</option>
+                            <option>Jewel Division</option>
+                            <option>IBD Division</option>
+                            <option>Eyecare Division</option>
+                            <option>Finance and People Division</option>
+                            <option>Infra and Information Security</option>
+                            <option>E-comm Division</option>
+                            <option>Enterprise Data</option>
+                            <option>Analytics and Insights</option>
+                            <option>AI &amp; Data Science</option>
+                            <option>CRM</option>
+                            <option>Taneira</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nature_of_engagement" class="form-label-custom">Nature of Engagement</label>
+                        <input type="text" class="form-control custom-input" id="nature_of_engagement_display" readonly
+                               value="Auto-calculated from Pre-Business Assessment"
+                               style="font-weight:500;cursor:default;color:#94a3b8;font-style:italic">
+                        <input type="hidden" id="nature_of_engagement" name="nature_of_engagement" value="">
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Automatically determined by analysing the Pre-Business Assessment Questionnaire during the pipeline run.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="spoc_email" class="form-label-custom">Titan SPOC Email ID</label>
+                        <input type="email" class="form-control custom-input" id="spoc_email" name="spoc_email"
+                               placeholder="e.g. firstname.lastname@titan.co.in">
+                    </div>
+                    <div class="mb-0">
+                        <div class="form-check form-switch custom-switch">
+                            <input class="form-check-input" type="checkbox" id="use_openai" name="use_openai" checked>
+                            <label class="form-check-label" for="use_openai">Use OpenAI API</label>
+                        </div>
+                        <small class="text-muted">Uncheck for Mock LLM (testing without API credits)</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pipeline Steps -->
+            <div class="glass-card fade-in" style="animation-delay:.15s">
+                <div class="glass-card-header">
+                    <h5><i class="bi bi-diagram-3-fill me-2"></i>Pipeline Steps</h5>
+                </div>
+                <div class="glass-card-body p-0">
+                    <div class="pipeline-steps">
+                        <div class="pipeline-step"><span class="step-num">1</span><span>Parse Questionnaire</span></div>
+                        <div class="pipeline-step"><span class="step-num">2</span><span>Process Policies & Clauses</span></div>
+                        <div class="pipeline-step"><span class="step-num">3</span><span>Analyse Responses</span></div>
+                        <div class="pipeline-step"><span class="step-num">4</span><span>Process Artifacts</span></div>
+                        <div class="pipeline-step"><span class="step-num">5</span><span>Gap Analysis & Risk Scoring</span></div>
+                        <div class="pipeline-step"><span class="step-num">6</span><span>Clause Recommendations</span></div>
+                        <div class="pipeline-step"><span class="step-num">7</span><span>Final Report</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: File Uploads -->
+        <div class="col-lg-8">
+            <div class="glass-card mb-3 fade-in" style="animation-delay:.2s">
+                <div class="glass-card-header">
+                    <h5><i class="bi bi-file-earmark-text-fill me-2 text-primary"></i>SIG Lite Questionnaire <span class="text-danger">*</span></h5>
+                </div>
+                <div class="glass-card-body">
+                    <div class="upload-zone" onclick="this.querySelector('input').click()">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <p>Click to upload or drag & drop</p>
+                        <small>PDF format</small>
+                        <input type="file" class="d-none" name="questionnaires" accept=".pdf" required
+                               onchange="updateUploadZone(this)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card mb-3 fade-in" style="animation-delay:.25s">
+                <div class="glass-card-header">
+                    <h5><i class="bi bi-clipboard2-check-fill me-2 text-purple" style="color:#8b5cf6"></i>Pre-Business Assessment Questionnaire</h5>
+                </div>
+                <div class="glass-card-body">
+                    <div class="upload-zone" onclick="this.querySelector('input').click()">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <p>Click to upload or drag & drop</p>
+                        <small>PDF, DOCX, TXT &middot; OneTrust or similar pre-assessment</small>
+                        <input type="file" class="d-none" name="pre_business_assessment" accept=".pdf,.docx,.txt" multiple
+                               onchange="updateUploadZone(this)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card mb-3 fade-in" style="animation-delay:.3s">
+                <div class="glass-card-header">
+                    <h5><i class="bi bi-file-earmark-zip-fill me-2 text-info"></i>Vendor Artifacts</h5>
+                </div>
+                <div class="glass-card-body">
+                    <div class="upload-zone" onclick="this.querySelector('input').click()">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <p>Click to upload or drag & drop</p>
+                        <small>PDF, DOCX, TXT, ZIP, PNG, JPG &middot; Multiple files allowed</small>
+                        <input type="file" class="d-none" name="artifacts" accept=".pdf,.docx,.txt,.xlsx,.xls,.pptx,.zip,.png,.jpg,.jpeg" multiple
+                               onchange="updateUploadZone(this)">
+                    </div>
+                    <div id="artifact-count" class="mt-2 small text-primary d-none">
+                        <i class="bi bi-files me-1"></i><span>0</span> file(s) selected
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card mb-3 fade-in" style="animation-delay:.3s">
+                <div class="glass-card-header">
+                    <h5><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Internal Policies</h5>
+                </div>
+                <div class="glass-card-body">
+                    {% if default_policies %}
+                    {% set active_pol = default_policies|selectattr('is_active')|list %}
+                    {% if active_pol %}
+                    <div class="alert alert-info py-2 px-3 mb-3" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:10px;font-size:.85rem">
+                        <i class="bi bi-check-circle-fill me-1 text-success"></i>
+                        <strong>{{ active_pol|length }} default polic{{ 'y' if active_pol|length == 1 else 'ies' }}</strong> preloaded
+                        <span class="badge bg-success ms-1" style="font-size:.7rem">{{ active_pol[0].version_label }}</span>
+                        ({% for p in active_pol %}{{ p.filename }}{% if not loop.last %}, {% endif %}{% endfor %}).
+                        Upload below only to override.
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    <div class="upload-zone" onclick="this.querySelector('input').click()">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <p>Click to upload or drag & drop</p>
+                        <small>PDF, DOCX, TXT &middot; {{ 'Override defaults or leave empty to use preloaded' if default_policies else 'Supports scanned PDFs via OCR' }}</small>
+                        <input type="file" class="d-none" name="policies" accept=".pdf,.docx,.txt" multiple
+                               onchange="updateUploadZone(this)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card mb-4 fade-in" style="animation-delay:.35s">
+                <div class="glass-card-header">
+                    <h5><i class="bi bi-file-earmark-ruled-fill me-2 text-success"></i>Contract Clauses</h5>
+                </div>
+                <div class="glass-card-body">
+                    {% if default_clauses %}
+                    {% set active_cl = default_clauses|selectattr('is_active')|list %}
+                    {% if active_cl %}
+                    <div class="alert alert-info py-2 px-3 mb-3" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:10px;font-size:.85rem">
+                        <i class="bi bi-check-circle-fill me-1 text-success"></i>
+                        <strong>{{ active_cl|length }} default clause file{{ 's' if active_cl|length != 1 }}</strong> preloaded
+                        <span class="badge bg-success ms-1" style="font-size:.7rem">{{ active_cl[0].version_label }}</span>
+                        ({% for c in active_cl %}{{ c.filename }}{% if not loop.last %}, {% endif %}{% endfor %}).
+                        Upload below only to override.
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    <div class="upload-zone" onclick="this.querySelector('input').click()">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <p>Click to upload or drag & drop</p>
+                        <small>DOCX preferred &middot; {{ 'Override defaults or leave empty to use preloaded' if default_clauses else 'PDF, TXT also accepted' }}</small>
+                        <input type="file" class="d-none" name="contract_clauses" accept=".docx,.pdf,.txt" multiple
+                               onchange="updateUploadZone(this)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="fade-in" style="animation-delay:.4s">
+                <button type="submit" class="action-btn action-btn-primary w-100 justify-content-center" id="submit-btn"
+                        style="padding:1rem;font-size:1.1rem">
+                    <i class="bi bi-rocket-takeoff-fill me-2"></i>Create & Run Assessment
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Progress Modal — shown briefly while files upload then auto-dismissed -->
+<div class="modal fade" id="progressModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:16px">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title text-white"><i class="bi bi-cpu me-2"></i>Starting Assessment</h5>
+            </div>
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" role="status" style="width:3rem;height:3rem">
+                    <span class="visually-hidden">Starting...</span>
+                </div>
+                <p class="text-white mb-1" id="progress-label">Uploading files...</p>
+                <p class="text-muted small mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    The pipeline will run in the background — you'll be notified when it's done.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function lookupVendor() {
+    const vid = document.getElementById('vendor_id_lookup').value.trim();
+    const resultBox = document.getElementById('vendor-lookup-result');
+    if (!vid) return;
+    resultBox.className = 'mt-1 small';
+    resultBox.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Looking up...';
+    try {
+        const r = await fetch(`/api/vendor-lookup?vendor_id=${encodeURIComponent(vid)}`, { credentials: 'same-origin' });
+        if (!r.ok) {
+            resultBox.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Vendor ID not found.</span>';
+            return;
+        }
+        const d = await r.json();
+        document.getElementById('vendor_name').value = d.vendor_name;
+        // Pre-select division if available
+        if (d.division) {
+            const sel = document.getElementById('division');
+            for (let i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].text.trim().toLowerCase() === d.division.trim().toLowerCase()) {
+                    sel.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+        resultBox.innerHTML = `<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>
+            Matched: <strong>${d.vendor_name}</strong> &mdash; current latest is
+            <span class="badge bg-primary-subtle text-primary">v${d.latest_version}</span>,
+            this will be saved as
+            <span class="badge bg-primary">v${d.next_version}</span>.
+        </span>`;
+    } catch(e) {
+        resultBox.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Lookup failed.</span>';
+    }
+}
+
+// Also trigger lookup on Enter key in the vendor_id field
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('vendor_id_lookup').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); lookupVendor(); }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('assessment-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const progressModal = new bootstrap.Modal(document.getElementById('progressModal'));
+    const progressBar = document.getElementById('progress-bar');
+    const progressLabel = document.getElementById('progress-label');
+
+    // Show artifact file count
+    const artifactInput = document.querySelector('input[name="artifacts"]');
+    const artifactCount = document.getElementById('artifact-count');
+    if (artifactInput) {
+        artifactInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                artifactCount.classList.remove('d-none');
+                artifactCount.querySelector('span').textContent = this.files.length;
+            } else {
+                artifactCount.classList.add('d-none');
+            }
+        });
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
+
+        const formData = new FormData(form);
+        // Fix checkbox for FastAPI
+        if (!document.getElementById('use_openai').checked) {
+            formData.set('use_openai', 'false');
+        } else {
+            formData.set('use_openai', 'true');
+        }
+
+        try {
+            // Step 1: Create assessment & upload files
+            const createResp = await fetch('/api/assessments', { method: 'POST', body: formData, credentials: 'same-origin' });
+            if (!createResp.ok) {
+                const err = await createResp.json();
+                throw new Error(err.detail || 'Failed to create assessment');
+            }
+            const createData = await createResp.json();
+            const assessmentId = createData.id;
+            const vendorName   = createData.vendor_name || formData.get('vendor_name') || 'Assessment';
+
+            // Step 2: Trigger pipeline
+            progressModal.show();
+            progressLabel.textContent = 'Starting pipeline...';
+
+            const runResp = await fetch(`/api/assessments/${assessmentId}/run`, { method: 'POST', credentials: 'same-origin' });
+            if (!runResp.ok) throw new Error('Failed to start pipeline');
+
+            // Register with global tracker — notification fires on any page when done
+            if (window.tprmTrackAssessment) window.tprmTrackAssessment(assessmentId, vendorName);
+
+            // Navigate away immediately so the user isn't locked on this page
+            progressLabel.textContent = 'Pipeline started! Redirecting...';
+            setTimeout(() => { window.location.href = '/assessments'; }, 800);
+
+        } catch (err) {
+            alert('Error: ' + err.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-play-circle me-2"></i>Create & Run Assessment';
+        }
+    });
+});
+</script>
+{% endblock %}

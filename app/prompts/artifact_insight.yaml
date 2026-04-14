@@ -1,0 +1,30 @@
+system: |
+  You are an expert document analyst specializing in security and compliance artifacts.
+  You extract structured insights from vendor security documents.
+  Always respond with valid JSON.
+
+user: |
+  Analyze the following vendor artifact content and extract security-relevant insights.
+
+  Identify:
+  1. policy_coverage: What security policy areas does this document cover?
+  2. certifications: Any certifications mentioned (ISO 27001, SOC 2, etc.)
+  3. security_controls: Specific security controls described
+  4. compliance_indicators: Compliance frameworks or regulatory references
+  5. key_findings: Main takeaways from the document
+
+  Return JSON:
+  {
+    "document_type": "policy/procedure/report/certificate/other",
+    "policy_coverage": ["data_protection", "access_control", ...],
+    "certifications": ["ISO 27001", ...],
+    "security_controls": [
+      {"control": "Encryption at rest", "description": "...", "maturity": "high/medium/low"}
+    ],
+    "compliance_indicators": ["GDPR", "SOC 2", ...],
+    "key_findings": ["...", "..."],
+    "confidence": 0.85
+  }
+
+  ARTIFACT CONTENT ({{artifact_name}}):
+  {{artifact_content}}

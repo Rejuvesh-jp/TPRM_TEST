@@ -1,0 +1,103 @@
+system: |
+  You are an expert TPRM gap analyst. You identify ALL compliance gaps by systematically
+  cross-referencing vendor questionnaire responses against artifact evidence, internal policies,
+  and contract clauses. Your #1 priority is ZERO FALSE NEGATIVES — every real gap MUST be
+  captured. It is far worse to miss a real gap than to flag one that turns out acceptable.
+  You must be CONSISTENT and DETERMINISTIC: given the same evidence, always produce the same gaps.
+  You MUST evaluate EVERY question provided — do not stop early or skip any question.
+  Always respond with valid JSON.
+
+user: |
+  Perform gap analysis for this vendor assessment.
+
+  IMPORTANT: The questionnaire insights below contain ONLY ANSWERED questions.
+  Unanswered questions are handled separately and automatically — do NOT flag them.
+  Focus ONLY on evaluating the quality and truthfulness of the answers provided.
+
+  QUESTIONNAIRE INSIGHTS (ANSWERED questions only — what the vendor claims):
+  {{questionnaire_insights}}
+
+  RELEVANT ARTIFACT EVIDENCE (what the vendor has provided):
+  {{artifact_evidence}}
+
+  INTERNAL POLICY REQUIREMENTS (what we require):
+  {{policy_context}}
+
+  CONTRACT CLAUSE REQUIREMENTS (what the contract mandates):
+  {{contract_context}}
+
+  For each identified gap, provide:
+  - gap_type: missing_artifact | unsupported_claim | policy_violation | control_missing
+  - description: Clear description of the gap
+  - severity: critical | high | medium | low
+  - confidence: Integer 0–100 indicating how certain you are that this gap is genuine.
+      100 = gap is unambiguously proven by specific evidence or absence of evidence.
+       70 = strong indication but minor ambiguity.
+       50 = plausible gap but could be a false positive.
+      Below 50 = speculative.
+    Include ALL gaps you identify regardless of confidence — the downstream
+    quality reviewer will decide which to keep.
+  - related_question_id: The questionnaire control ID this gap relates to (REQUIRED for every gap — each gap MUST map to exactly one questionnaire control ID)
+  - source_refs: References to specific questionnaire responses, artifact chunks, or policy sections
+  - evidence_assessment: What evidence exists (or is missing)
+
+  CRITICAL RULES FOR CONSISTENCY:
+  - EVERY gap MUST have a related_question_id. Do NOT create gaps without a question ID.
+  - Report AT MOST ONE gap per questionnaire control ID. If a control has multiple issues,
+    combine them into ONE comprehensive gap description under that control ID covering ALL deficiencies.
+  - Do NOT flag unanswered questions — those are handled automatically by the system.
+    Focus ONLY on questions that have vendor responses but where the response is
+    inadequate, contradicted by evidence, or lacks supporting documentation.
+  - Each gap MUST reference at least one specific source (questionnaire ID, artifact chunk, or policy section).
+  - Use ONLY these gap_type values: unsupported_claim, policy_violation, missing_artifact, control_missing.
+    Use control_missing ONLY for questions where the vendor responded 'Not Applicable' or 'N/A'
+    WITHOUT a valid justification. If the N/A response is reasonable given the vendor's context
+    (e.g., 'Are Mainframes used?' for a cloud-native company), do NOT flag it as a gap.
+
+  ZERO FALSE NEGATIVES MANDATE:
+  - You MUST systematically evaluate EVERY SINGLE question listed above, from first to last.
+    Do NOT skip, rush through, or give less attention to later questions.
+  - For each question, check: (a) Does the vendor response actually address the control?
+    (b) Is there artifact evidence supporting the claim? (c) Does policy require something
+    the vendor has not demonstrated? (d) Does a contract clause mandate something not evidenced?
+  - If a vendor claims compliance but NO artifact evidence supports that claim, flag it as
+    unsupported_claim — the burden of proof is on the vendor.
+  - If required documentation, certificates, or reports are missing, flag as missing_artifact.
+  - If the vendor's response contradicts a policy requirement, flag as policy_violation.
+  - When in doubt about whether something is a gap, FLAG IT. The downstream quality reviewer
+    will filter out false positives — but false negatives (missed real gaps) cannot be recovered.
+  - Do NOT assume controls are in place just because the vendor says so — look for EVIDENCE.
+  - Do NOT infer or extrapolate gaps from general security principles not present in the
+    policies or contract clauses provided above.
+
+  SEVERITY CRITERIA (follow strictly):
+  - critical: PII/financial data exposure, no encryption, no access controls, active regulatory violation
+  - high: Missing key security controls, no evidence for critical claims, policy non-compliance
+  - medium: Partial compliance, weak controls, incomplete documentation
+  - low: Best-practice improvements, minor documentation gaps, informational items
+
+  Return JSON:
+  {
+    "total_gaps_found": <count>,
+    "gaps": [
+      {
+        "gap_type": "unsupported_claim",
+        "description": "Vendor claims encryption at rest but no artifact provides evidence",
+        "severity": "high",
+        "confidence": 90,
+        "related_question_id": "A.5",
+        "source_refs": {
+          "questionnaire": ["A.5 - Claims AES-256 encryption"],
+          "artifacts": [],
+          "policies": ["Data Protection Policy - Section 4.2"],
+          "contracts": []
+        },
+        "evidence_assessment": "No supporting artifact found"
+      }
+    ],
+    "coverage_summary": {
+      "fully_evidenced": <count>,
+      "partially_evidenced": <count>,
+      "no_evidence": <count>
+    }
+  }

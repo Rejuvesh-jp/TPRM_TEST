@@ -1,0 +1,33 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: tprm-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db:/docker-entrypoint-initdb.d
+    networks:
+      - tprm-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: tprm-redis
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme} --bind 127.0.0.1
+    ports:
+      - "127.0.0.1:6379:6379"
+    networks:
+      - tprm-network
+
+networks:
+  tprm-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -1,0 +1,567 @@
+{% extends "base.html" %}
+{% set active_page = "analytics" %}
+{% block title %}{{ meta.vendor_name }} — Analytics{% endblock %}
+{% block page_title %}<i class="bi bi-bar-chart-line-fill me-2"></i>Assessment Analytics{% endblock %}
+
+{% block head %}
+<style>
+/* ── Donut chart container: fixed square so all donuts are the same size ── */
+.chart-donut-wrap {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    flex-shrink: 0;
+    margin: 0 auto;
+}
+.chart-donut-wrap canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100% !important;
+    height: 100% !important;
+}
+.chart-donut-wrap .donut-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+    line-height: 1;
+}
+.chart-donut-wrap .donut-val { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); }
+.chart-donut-wrap .donut-lbl { font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
+/* Bar chart container */
+.chart-bar-wrap  { position: relative; width: 100%; height: 240px; }
+/* Donut card body */
+.donut-card-body {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 1.5rem 1rem;
+    flex-wrap: wrap;
+}
+.donut-legend-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+    min-width: 130px;
+}
+.donut-legend-list li {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-size: .82rem;
+    color: var(--text-primary);
+}
+.donut-legend-list .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.donut-legend-list .legend-count {
+    margin-left: auto;
+    font-weight: 700;
+    font-size: .9rem;
+}
+.analytics-kpi   { border: 1px solid var(--border-color); border-radius: 10px; padding: .65rem .5rem; text-align: center; }
+.analytics-kpi .kpi-val { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+.analytics-kpi .kpi-lbl { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="row mb-3">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="/analytics">Analytics</a></li>
+                <li class="breadcrumb-item active">{{ meta.vendor_name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="mb-1"><i class="bi bi-building me-2"></i>{{ meta.vendor_name }}</h2>
+        <span class="text-muted small">Assessment completed {{ meta.completed_at[:16] | replace('T', ' ') if meta.completed_at else '' }} &nbsp;·&nbsp; {{ report.elapsed_seconds }}s processing time</span>
+    </div>
+    <div class="col-md-4 text-md-end d-flex gap-2 justify-content-md-end flex-wrap mt-3 mt-md-0">
+        <a href="/assessments/{{ meta.id }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-list-check me-1"></i>Full Report
+        </a>
+        <a href="/assessments/{{ meta.id }}/download/pdf" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+        </a>
+        <a href="/assessments/{{ meta.id }}/download/word" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-file-earmark-word me-1"></i>Word
+        </a>
+    </div>
+</div>
+
+<!-- KPI Cards Row -->
+<div class="row g-3 mb-4">
+    <div class="col-xl col-md-4 col-6 fade-in" style="animation-delay:.05s">
+        <div class="stat-card">
+            <div class="stat-card-body">
+                <div class="stat-icon stat-icon-danger"><i class="bi bi-exclamation-diamond"></i></div>
+                <div class="stat-content">
+                    <span class="stat-label">Total Gaps</span>
+                    <span class="stat-value">{{ gaps|length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl col-md-4 col-6 fade-in" style="animation-delay:.065s">
+        <div class="stat-card">
+            <div class="stat-card-body">
+                <div class="stat-icon" style="background:rgba(239,68,68,.12);color:#ef4444"><i class="bi bi-circle-fill" style="font-size:.8rem"></i></div>
+                <div class="stat-content">
+                    <span class="stat-label">Open Gaps</span>
+                    <span class="stat-value text-danger">{{ gap_open_count }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl col-md-4 col-6 fade-in" style="animation-delay:.08s">
+        <div class="stat-card">
+            <div class="stat-card-body">
+                <div class="stat-icon stat-icon-success"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="stat-content">
+                    <span class="stat-label">Closed Gaps</span>
+                    <span class="stat-value text-success">{{ gap_closed_count }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl col-md-4 col-6 fade-in" style="animation-delay:.10s">
+        <div class="stat-card">
+            <div class="stat-card-body">
+                <div class="stat-icon stat-icon-primary"><i class="bi bi-lightbulb"></i></div>
+                <div class="stat-content">
+                    <span class="stat-label">Recommendations</span>
+                    <span class="stat-value">{{ recommendations|length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl col-md-4 col-6 fade-in" style="animation-delay:.12s">
+        <div class="stat-card">
+            <div class="stat-card-body">
+                <div class="stat-icon stat-icon-warning"><i class="bi bi-tools"></i></div>
+                <div class="stat-content">
+                    <span class="stat-label">Remedial Actions</span>
+                    <span class="stat-value">{{ remedial|length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl col-md-4 col-6 fade-in" style="animation-delay:.14s">
+        <div class="stat-card">
+            <div class="stat-card-body">
+                <div class="stat-icon stat-icon-success"><i class="bi bi-clipboard-check"></i></div>
+                <div class="stat-content">
+                    <span class="stat-label">Questions Assessed</span>
+                    <span class="stat-value">{{ total_questions }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl col-md-4 col-6 fade-in" style="animation-delay:.17s">
+        <div class="stat-card">
+            <div class="stat-card-body">
+                <div class="stat-icon" style="background:rgba(79,70,229,.12);color:#4f46e5"><i class="bi bi-file-text"></i></div>
+                <div class="stat-content">
+                    <span class="stat-label">Artifacts Reviewed</span>
+                    <span class="stat-value">{{ report.input_summary.artifacts }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Row 1: Gap Type Breakdown + Gap Status ──────────────────── -->
+<div class="row g-3 mb-3">
+
+    <!-- Gap Type Breakdown -->
+    <div class="col-lg-6 fade-in" style="animation-delay:.20s">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Gap Type Breakdown</h6>
+            </div>
+            <div class="donut-card-body">
+                {% if gaps %}
+                <div class="chart-donut-wrap">
+                    <canvas id="chart-gap-types"></canvas>
+                    <div class="donut-center">
+                        <div class="donut-val">{{ gap_open_count }}</div>
+                        <div class="donut-lbl">open gaps</div>
+                    </div>
+                </div>
+                <ul class="donut-legend-list">
+                    {% set gap_label_map = {'control_missing': 'Control Missing', 'partial_compliance': 'Partial Compliance', 'evidence_gap': 'Evidence Gap', 'future_risk': 'Future Risk'} %}
+                    {% set gap_color_map = {'control_missing': '#ef4444', 'partial_compliance': '#f59e0b', 'evidence_gap': '#3b82f6', 'future_risk': '#8b5cf6'} %}
+                    {% for k, v in gap_type_counts.items() if v > 0 %}
+                    <li>
+                        <span class="legend-dot" style="background:{{ gap_color_map.get(k, '#94a3b8') }}"></span>
+                        <span>{{ gap_label_map.get(k, k) }}</span>
+                        <span class="legend-count">{{ v }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-muted small">No gaps identified</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Gap Status (Open / Closed) -->
+    <div class="col-lg-6 fade-in" style="animation-delay:.22s">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-toggles me-2"></i>Gap Status</h6>
+            </div>
+            <div class="donut-card-body">
+                {% if gaps %}
+                <div class="chart-donut-wrap">
+                    <canvas id="chart-gap-status"></canvas>
+                    <div class="donut-center">
+                        <div class="donut-val">{{ gap_open_count }}</div>
+                        <div class="donut-lbl">open</div>
+                    </div>
+                </div>
+                <ul class="donut-legend-list">
+                    <li>
+                        <span class="legend-dot" style="background:#ef4444"></span>
+                        <span>Open</span>
+                        <span class="legend-count text-danger">{{ gap_open_count }}</span>
+                    </li>
+                    <li>
+                        <span class="legend-dot" style="background:#10b981"></span>
+                        <span>Closed</span>
+                        <span class="legend-count text-success">{{ gap_closed_count }}</span>
+                    </li>
+                    <li style="border-top:1px solid var(--border-color);padding-top:.4rem;margin-top:.1rem">
+                        <span style="font-size:.75rem;color:var(--text-muted)">Total</span>
+                        <span class="legend-count">{{ gaps|length }}</span>
+                    </li>
+                </ul>
+                {% else %}
+                <div class="text-muted small">No gaps identified</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Row 2: Question Coverage + Recommendation Source ──────── -->
+<div class="row g-3 mb-3">
+
+    <!-- Question Coverage -->
+    <div class="col-lg-6 fade-in" style="animation-delay:.24s">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-clipboard2-check me-2"></i>Question Coverage</h6>
+            </div>
+            <div class="donut-card-body">
+                {% if total_questions > 0 %}
+                <div class="chart-donut-wrap">
+                    <canvas id="chart-coverage"></canvas>
+                    <div class="donut-center">
+                        <div class="donut-val">{{ ((answered / total_questions) * 100) | round | int }}%</div>
+                        <div class="donut-lbl">covered</div>
+                    </div>
+                </div>
+                <ul class="donut-legend-list">
+                    <li>
+                        <span class="legend-dot" style="background:#10b981"></span>
+                        <span>Answered</span>
+                        <span class="legend-count text-success">{{ answered }}</span>
+                    </li>
+                    <li>
+                        <span class="legend-dot" style="background:#ef4444"></span>
+                        <span>Missing Control</span>
+                        <span class="legend-count text-danger">{{ unanswered }}</span>
+                    </li>
+                    {% set other_gaps = (gap_open_count - unanswered) if (gap_open_count - unanswered) > 0 else 0 %}
+                    {% if other_gaps > 0 %}
+                    <li>
+                        <span class="legend-dot" style="background:#f59e0b"></span>
+                        <span>Other Gaps</span>
+                        <span class="legend-count">{{ other_gaps }}</span>
+                    </li>
+                    {% endif %}
+                    <li style="border-top:1px solid var(--border-color);padding-top:.4rem;margin-top:.1rem">
+                        <span style="font-size:.75rem;color:var(--text-muted)">Total Questions</span>
+                        <span class="legend-count">{{ total_questions }}</span>
+                    </li>
+                </ul>
+                {% else %}
+                <div class="text-muted small">No question data</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendation Source -->
+    <div class="col-lg-6 fade-in" style="animation-delay:.26s">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Recommendation Source</h6>
+            </div>
+            <div class="donut-card-body">
+                {% if recommendations %}
+                <div class="chart-donut-wrap">
+                    <canvas id="chart-rec-source"></canvas>
+                </div>
+                {% set source_label_map = {'existing': 'Existing Clause', 'new': 'New Suggestion', 'future_risk': 'Future Risk'} %}
+                {% set source_color_list = ['#4f46e5','#10b981','#8b5cf6','#f59e0b'] %}
+                <ul class="donut-legend-list">
+                    {% for k, v in rec_source_counts.items() if v > 0 %}
+                    <li>
+                        <span class="legend-dot" style="background:{{ source_color_list[loop.index0 % 4] }}"></span>
+                        <span>{{ source_label_map.get(k, k) }}</span>
+                        <span class="legend-count">{{ v }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-muted small">No recommendations</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Row 3: Two Bar Charts ──────────────────────────────────────────── -->
+<div class="row g-3 mb-3">
+
+    <!-- Recommendation Priority -->
+    <div class="col-lg-6 fade-in" style="animation-delay:.29s">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i>Recommendation Priority</h6>
+            </div>
+            <div class="glass-card-body" style="padding: 1rem;">
+                {% if recommendations %}
+                <div class="chart-bar-wrap">
+                    <canvas id="chart-rec-priority"></canvas>
+                </div>
+                {% else %}
+                <div class="text-muted small text-center py-5">No recommendations</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Remedial Actions Priority -->
+    <div class="col-lg-6 fade-in" style="animation-delay:.32s">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-tools me-2"></i>Remedial Actions by Priority</h6>
+            </div>
+            <div class="glass-card-body" style="padding: 1rem;">
+                {% if remedial %}
+                <div class="chart-bar-wrap">
+                    <canvas id="chart-remedial-priority"></canvas>
+                </div>
+                {% else %}
+                <div class="text-muted small text-center py-5">No remedial actions</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Recommendation Priority -->
+    <div class="col-lg-6 fade-in" style="animation-delay:.29s">
+    <div class="col-12">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-file-text me-2"></i>Executive Summary</h6>
+            </div>
+            <div class="glass-card-body">
+                <p class="mb-0" style="line-height:1.7">{{ report.summary.executive_summary }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.color = '#64748b';
+
+const GAP_LABELS = {
+    control_missing:   'Control Missing',
+    partial_compliance:'Partial Compliance',
+    evidence_gap:      'Evidence Gap',
+    future_risk:       'Future Risk',
+};
+const GAP_COLORS = {
+    control_missing:   '#ef4444',
+    partial_compliance:'#f59e0b',
+    evidence_gap:      '#3b82f6',
+    future_risk:       '#8b5cf6',
+};
+const PRIORITY_LABELS = {
+    must_have:    'Must Have',
+    should_have:  'Should Have',
+    nice_to_have: 'Nice to Have',
+    immediate:    'Immediate',
+    short_term:   'Short Term',
+    medium_term:  'Medium Term',
+    long_term:    'Long Term',
+    unset:        'Unspecified',
+};
+const PRIORITY_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#10b981','#06b6d4','#64748b','#94a3b8'];
+const SOURCE_LABELS = { existing: 'Existing Clause', new: 'New Suggestion', future_risk: 'Future Risk' };
+const SOURCE_COLORS = ['#4f46e5', '#10b981', '#8b5cf6', '#f59e0b'];
+
+function buildDonut(canvasId, rawCounts, labelMap, colorMap, cutout) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    const keys = Object.keys(rawCounts).filter(k => rawCounts[k] > 0);
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: keys.map(k => labelMap[k] || k),
+            datasets: [{
+                data: keys.map(k => rawCounts[k]),
+                backgroundColor: keys.map(k => colorMap[k] || '#94a3b8'),
+                borderWidth: 0,
+                hoverOffset: 6,
+            }]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            cutout: cutout || '70%',
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}` } }
+            }
+        }
+    });
+}
+
+function buildHBar(canvasId, rawCounts, labelMap, colors) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    const keys = Object.keys(rawCounts).sort((a, b) => rawCounts[b] - rawCounts[a]);
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: keys.map(k => labelMap[k] || k),
+            datasets: [{
+                data: keys.map(k => rawCounts[k]),
+                backgroundColor: keys.map((_, i) => colors[i % colors.length] + 'bb'),
+                borderColor:     keys.map((_, i) => colors[i % colors.length]),
+                borderWidth: 1,
+                borderRadius: 4,
+                barThickness: 24,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { size: 11 } }, grid: { color: '#e2e8f040' } },
+                y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+// Chart 1 — Gap Type Donut
+buildDonut('chart-gap-types', {{ gap_type_counts | tojson }}, GAP_LABELS, GAP_COLORS, '68%');
+
+// Chart 1b — Gap Status Donut (Open vs Closed)
+(function () {
+    const ctx = document.getElementById('chart-gap-status');
+    if (!ctx) return;
+    const openCount   = {{ gap_open_count }};
+    const closedCount = {{ gap_closed_count }};
+    if (openCount + closedCount === 0) return;
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Open', 'Closed'],
+            datasets: [{
+                data: [openCount, closedCount],
+                backgroundColor: ['#ef4444', '#10b981'],
+                borderWidth: 0,
+                hoverOffset: 5,
+            }]
+        },
+        options: {
+            cutout: '72%',
+            responsive: false,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}` } }
+            }
+        }
+    });
+})();
+
+// Chart 2 — Question Coverage Donut
+(function () {
+    const ctx = document.getElementById('chart-coverage');
+    if (!ctx) return;
+    const answered  = {{ answered }};
+    const missing   = {{ unanswered }};
+    const otherGaps = Math.max(0, {{ gap_open_count }} - missing);
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Answered', 'Missing Control', 'Other Gaps'],
+            datasets: [{
+                data: [answered, missing, otherGaps],
+                backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                borderWidth: 0,
+                hoverOffset: 5,
+            }]
+        },
+        options: {
+            cutout: '72%',
+            responsive: false,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}` } }
+            }
+        }
+    });
+})();
+
+// Chart 3 — Recommendation Source Donut
+(function () {
+    const raw  = {{ rec_source_counts | tojson }};
+    const keys = Object.keys(raw);
+    buildDonut('chart-rec-source', raw, SOURCE_LABELS,
+        Object.fromEntries(keys.map((k, i) => [k, SOURCE_COLORS[i % SOURCE_COLORS.length]])),
+        '65%');
+})();
+
+// Chart 4 — Recommendation Priority Horizontal Bar
+buildHBar('chart-rec-priority',      {{ rec_priority_counts      | tojson }}, PRIORITY_LABELS, PRIORITY_COLORS);
+
+// Chart 5 — Remedial Priority Horizontal Bar
+buildHBar('chart-remedial-priority', {{ remedial_priority_counts | tojson }}, PRIORITY_LABELS, PRIORITY_COLORS);
+</script>
+{% endblock %}

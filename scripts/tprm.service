@@ -1,0 +1,36 @@
+[Unit]
+Description=TPRM AI Assessment Platform
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=tprm
+Group=tprm
+WorkingDirectory=/opt/tprm
+EnvironmentFile=/opt/tprm/.env
+
+# Start uvicorn directly — 2 workers, production mode
+ExecStart=/opt/tprm/venv/bin/uvicorn webapp.main:app \
+    --host 0.0.0.0 \
+    --port 8085 \
+    --workers 2 \
+    --log-level info \
+    --access-log
+
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/tprm/data /opt/tprm/assessments /opt/tprm/config
+
+# Logging — goes to journald (view with: journalctl -u tprm -f)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tprm
+
+[Install]
+WantedBy=multi-user.target

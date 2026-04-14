@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+{% set active_page = "dashboard" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}<i class="bi bi-grid-1x2-fill me-2"></i>Dashboard{% endblock %}
+
+{% block head %}
+<style>
+/* Status legend */
+.status-legend { display:flex; flex-direction:column; gap:.75rem; padding:.5rem 0; }
+.sleg-item     { display:flex; align-items:center; gap:.65rem; }
+.sleg-dot      { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+.sleg-label    { font-size:.8rem; color:var(--text-secondary); line-height:1.2; }
+.sleg-count    { margin-left:auto; font-weight:700; font-size:1rem; color:var(--text-primary); }
+.sleg-pct      { font-size:.7rem; color:var(--text-muted); }
+.sleg-divider  { border-top:1px solid var(--border-color); padding-top:.6rem; margin-top:.1rem; }
+.sleg-total-row{ display:flex; justify-content:space-between; align-items:center; }
+.sleg-total-lbl{ font-size:.75rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; }
+.sleg-total-val{ font-weight:800; font-size:1.1rem; color:var(--text-primary); }
+/* chart wrappers */
+.chart-donut-sm { position:relative; width:100%; max-width:160px; margin:0 auto; }
+.chart-donut-sm .dc { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; line-height:1; }
+.chart-donut-sm .dc-v { font-size:1.65rem; font-weight:800; color:var(--text-primary); }
+.chart-donut-sm .dc-l { font-size:.65rem; color:var(--text-muted); margin-top:2px; }
+.chart-bar-wrap  { position:relative; width:100%; height:230px; }
+.chart-line-wrap { position:relative; width:100%; height:200px; }
+/* filter bar */
+.dash-filter { background:var(--glass-bg,#fff); border:1px solid var(--border-color,#e2e8f0); border-radius:.5rem; font-size:.82rem; }
+.dash-filter:focus { box-shadow:0 0 0 3px rgba(79,70,229,.15); border-color:#4f46e5; }
+.filter-chip { display:inline-flex; align-items:center; gap:.35rem; font-size:.75rem; padding:.25rem .6rem; border-radius:999px; background:rgba(79,70,229,.1); color:#4f46e5; font-weight:500; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Summary Cards removed — replaced by interactive charts above -->
+<!-- Quick Actions -->
+{% if total > 0 %}
+<div class="row g-4 mb-4">
+
+    <!-- Chart 1: Status Distribution -->
+    <div class="col-xl-4 col-lg-5 fade-in" style="animation-delay:.05s">
+        <div class="glass-card h-100">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Assessment Status</h6>
+            </div>
+            <div class="glass-card-body">
+                <div class="row align-items-center g-0">
+                    <div class="col-5">
+                        <div class="chart-donut-sm">
+                            <canvas id="chart-status"></canvas>
+                            <div class="dc">
+                                <div class="dc-v">{{ unique_vendors }}</div>
+                                <div class="dc-l">Vendors</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-7 ps-3">
+                        <div class="status-legend">
+                            <div class="sleg-item">
+                                <span class="sleg-dot" style="background:#4f46e5"></span>
+                                <div>
+                                    <div class="sleg-label">Completed</div>
+                                    {% if total > 0 %}<div class="sleg-pct">{{ ((completed/total)*100)|round|int }}% of total</div>{% endif %}
+                                </div>
+                                <span class="sleg-count">{{ completed }}</span>
+                            </div>
+                            <div class="sleg-item">
+                                <span class="sleg-dot" style="background:#f59e0b"></span>
+                                <div>
+                                    <div class="sleg-label">In Progress</div>
+                                    {% if total > 0 %}<div class="sleg-pct">{{ (((running+pending)/total)*100)|round|int }}% of total</div>{% endif %}
+                                </div>
+                                <span class="sleg-count">{{ running + pending }}</span>
+                            </div>
+                            <div class="sleg-item">
+                                <span class="sleg-dot" style="background:#ef4444"></span>
+                                <div>
+                                    <div class="sleg-label">Failed</div>
+                                    {% if total > 0 %}<div class="sleg-pct">{{ ((failed/total)*100)|round|int }}% of total</div>{% endif %}
+                                </div>
+                                <span class="sleg-count">{{ failed }}</span>
+                            </div>
+                            <div class="sleg-divider">
+                                <div class="sleg-total-row">
+                                    <span class="sleg-total-lbl">Unique Vendors</span>
+                                    <span class="sleg-total-val" style="color:var(--accent)">{{ unique_vendors }}</span>
+                                </div>
+                                <div class="sleg-total-row mt-1">
+                                    <span class="sleg-total-lbl">Total Assessments</span>
+                                    <span class="sleg-total-val">{{ total }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart 3: Top Vendors by Gaps -->
+    <div class="col-xl-8 col-lg-7 fade-in" style="animation-delay:.10s">
+        <div class="glass-card h-100">
+            <div class="glass-card-header">
+                <h6 class="mb-0"><i class="bi bi-bar-chart-horizontal-fill me-2"></i>Top Vendors by Gaps</h6>
+            </div>
+            <div class="glass-card-body">
+                {% if chart_vendors %}
+                <div class="chart-bar-wrap">
+                    <canvas id="chart-vendors"></canvas>
+                </div>
+                {% else %}
+                <div class="d-flex align-items-center justify-content-center text-muted small" style="height:230px">No completed assessments yet</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart 4: Monthly Trend — full width -->
+<div class="row g-4 mb-4">
+    <div class="col-12 fade-in" style="animation-delay:.15s">
+        <div class="glass-card">
+            <div class="glass-card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Assessments Over Time <span class="text-muted fw-normal" style="font-size:.78rem">(last 12 months)</span></h6>
+            </div>
+            <div class="glass-card-body">
+                <div class="chart-line-wrap">
+                    <canvas id="chart-monthly"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="row g-4 mb-4">
+    <div class="col-12 fade-in" style="animation-delay:.25s">
+        <div class="glass-card">
+            <div class="glass-card-body d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                <h5 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>Quick Actions</h5>
+                <div class="d-flex gap-3">
+                    <a href="/assessments/new" class="action-btn action-btn-primary">
+                        <i class="bi bi-plus-circle-fill me-2"></i>New Assessment
+                    </a>
+                    <a href="/assessments" class="action-btn action-btn-secondary">
+                        <i class="bi bi-list-check me-2"></i>View All Assessments
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Assessments -->
+<div class="row fade-in" style="animation-delay:.35s">
+    <div class="col-12">
+        <div class="glass-card">
+            <div class="glass-card-header">
+                <!-- Title row -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>Assessments
+                        <span class="badge bg-secondary ms-2 fw-normal" id="dash-count-badge" style="font-size:.72rem">{{ assessments|length }}</span>
+                    </h5>
+                    {% if assessments|length > 0 %}
+                    <a href="/assessments" class="view-all-link">View All <i class="bi bi-arrow-right"></i></a>
+                    {% endif %}
+                </div>
+                <!-- Filter bar -->
+                {% if assessments|length > 0 %}
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-sm-auto">
+                        <label class="visually-hidden" for="f-division">Division</label>
+                        <select class="form-select form-select-sm dash-filter" id="f-division" onchange="applyDashFilters()" style="min-width:165px">
+                            <option value=""><i class="bi bi-building"></i> All Divisions</option>
+                            {% for d in divisions_list %}
+                            <option value="{{ d }}">{{ d }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                        <label class="visually-hidden" for="f-engagement">Nature of Engagement</label>
+                        <select class="form-select form-select-sm dash-filter" id="f-engagement" onchange="applyDashFilters()" style="min-width:185px">
+                            <option value="">All Engagements</option>
+                            <option value="high">🔴 High</option>
+                            <option value="medium">퟿ Medium</option>
+                            <option value="low">🟢 Low</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                        <label class="visually-hidden" for="f-risk">Vendor Risk Rating</label>
+                        <select class="form-select form-select-sm dash-filter" id="f-risk" onchange="applyDashFilters()" style="min-width:185px">
+                            <option value="">All Risk Ratings</option>
+                            <option value="high">🔴 High Risk</option>
+                            <option value="medium">🟡 Medium Risk</option>
+                            <option value="low">🟢 Low Risk</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-auto">
+                        <button class="btn btn-sm btn-outline-secondary" id="clear-filters-btn" onclick="clearDashFilters()" style="display:none">
+                            <i class="bi bi-x-circle me-1"></i>Clear
+                        </button>
+                    </div>
+                    <div class="col ms-auto text-sm-end">
+                        <small class="text-muted" id="filter-count">{{ assessments|length }} assessment{{ 's' if assessments|length != 1 else '' }}</small>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="glass-card-body p-0">
+                {% if assessments|length > 0 %}
+                <div class="table-responsive">
+                    <table class="table modern-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Vendor</th>
+                                <th>Division</th>
+                                <th>Engagement</th>
+                                <th>Risk Rating</th>
+                                <th>Status</th>
+                                <th>Gaps</th>
+                                <th>Created</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="dash-tbody">
+                            {% for a in assessments %}
+                            <tr data-division="{{ a.division }}" data-engagement="{{ a.nature_of_engagement }}" data-risk="{{ a.risk_rating }}">
+                                <td>
+                                    <a href="/assessments/{{ a.id }}" class="vendor-link">
+                                        <span class="vendor-avatar">{{ a.vendor_name[0] | upper }}</span>
+                                        {{ a.vendor_name }}
+                                    </a>
+                                    <span class="badge bg-primary-subtle text-primary ms-1" style="font-size:.65rem">v{{ a.version if a.version else 1 }}</span>
+                                </td>
+                                <td><span class="small text-muted">{{ a.division if a.division else '' }}</span></td>
+                                <td>
+                                    {% if a.nature_of_engagement == 'high' %}<span class="badge bg-danger-subtle text-danger">High</span>
+                                    {% elif a.nature_of_engagement == 'medium' %}<span class="badge bg-warning-subtle text-warning">Medium</span>
+                                    {% elif a.nature_of_engagement == 'low' %}<span class="badge bg-success-subtle text-success">Low</span>
+                                    {% else %}{% endif %}
+                                    {% if a.pre_assessment_scores %}
+                                    <span class="d-inline-block" tabindex="0" data-bs-toggle="popover" data-bs-trigger="click"
+                                          data-bs-html="true" data-bs-placement="right"
+                                          data-bs-title="Pre-Assessment ({{ a.pre_assessment_scores.total_score }} pts)"
+                                          data-bs-content="{% for r in a.pre_assessment_scores.responses %}{% if r.answer == 'yes' %}<div class='small mb-1'>Q{{ r.q }}. +{{ r.score }}pts</div>{% endif %}{% endfor %}<hr class='my-1'><strong>Total: {{ a.pre_assessment_scores.total_score }}</strong>">
+                                        <i class="bi bi-info-circle text-info" style="cursor:pointer;font-size:.75rem"></i>
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if a.risk_rating == 'high' %}<span class="badge rounded-pill bg-danger px-3">High</span>
+                                    {% elif a.risk_rating == 'medium' %}<span class="badge rounded-pill bg-warning text-dark px-3">Medium</span>
+                                    {% elif a.risk_rating == 'low' %}<span class="badge rounded-pill bg-success px-3">Low</span>
+                                    {% else %}{% endif %}
+                                </td>
+                                <td>
+                                    {% if a.status == 'completed' %}
+                                    <span class="status-pill status-completed"><i class="bi bi-check-circle-fill"></i> Completed</span>
+                                    {% elif a.status == 'running' %}
+                                    <span class="status-pill status-running"><i class="bi bi-arrow-repeat spin"></i> Running</span>
+                                    <a href="/assessments/{{ a.id }}" class="btn btn-sm btn-outline-warning ms-1 py-0 px-2" style="font-size:.7rem">
+                                        <i class="bi bi-speedometer2 me-1"></i>View Progress
+                                    </a>
+                                    {% elif a.status == 'pending' %}
+                                    <span class="status-pill status-pending"><i class="bi bi-clock"></i> Pending</span>
+                                    {% elif a.status == 'failed' %}
+                                    <span class="status-pill status-failed"><i class="bi bi-x-circle-fill"></i> Failed</span>
+                                    {% endif %}
+                                </td>
+                                <td>{% if a.summary %}{{ a.summary.total_gaps }}{% else %}{% endif %}</td>
+                                <td class="text-muted small">{{ a.created_at[:16] | replace('T', ' ') }}</td>
+                                <td>
+                                    {% if a.status == 'failed' %}
+                                    <div class="d-flex gap-1">
+                                        <button class="icon-btn" title="Retry Pipeline" onclick="retryAssessment('{{ a.id }}')">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                        </button>
+                                        <a href="/assessments/{{ a.id }}" class="icon-btn" title="View"><i class="bi bi-arrow-right"></i></a>
+                                    </div>
+                                    {% else %}
+                                    <a href="/assessments/{{ a.id }}" class="icon-btn" title="View"><i class="bi bi-arrow-right"></i></a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="dash-no-results" class="text-center py-5 text-muted" style="display:none">
+                    <i class="bi bi-funnel fs-2 mb-2 d-block opacity-50"></i>
+                    No assessments match the selected filters.
+                    <br><a href="javascript:clearDashFilters()" class="small mt-2 d-inline-block">Clear filters</a>
+                </div>
+                {% else %}
+                <div class="empty-state py-5">
+                    <i class="bi bi-inbox"></i>
+                    <p>No assessments yet.</p>
+                    <a href="/assessments/new" class="action-btn action-btn-primary" style="display:inline-flex">
+                        <i class="bi bi-plus-circle me-2"></i>Create Your First Assessment
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.color = '#64748b';
+
+const VENDOR_PALETTE = [
+    '#4f46e5','#10b981','#f59e0b','#ef4444',
+    '#8b5cf6','#06b6d4','#ec4899','#84cc16'
+];
+
+// ── Chart 1: Status Donut ────────────────────────────────────────
+(function () {
+    const ctx = document.getElementById('chart-status');
+    if (!ctx) return;
+    const completed  = {{ completed }};
+    const inProgress = {{ running + pending }};
+    const failed     = {{ failed }};
+    const total      = {{ total }};
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Completed', 'In Progress', 'Failed'],
+            datasets: [{
+                data: [completed, inProgress, failed],
+                backgroundColor: ['#4f46e5', '#f59e0b', '#ef4444'],
+                borderWidth: 0,
+                hoverOffset: 8,
+                hoverBorderWidth: 2,
+                hoverBorderColor: '#fff',
+            }]
+        },
+        options: {
+            cutout: '76%',
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: c => {
+                            const pct = total ? Math.round((c.parsed / total) * 100) : 0;
+                            return ` ${c.label}: ${c.parsed} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+
+// ── Chart 3: Top Vendors Horizontal Bar (per-vendor colors + month) ──
+(function () {
+    const ctx = document.getElementById('chart-vendors');
+    if (!ctx) return;
+    const vendors = {{ chart_vendors | tojson }};
+    if (!vendors.length) return;
+    const colors = vendors.map((_, i) => VENDOR_PALETTE[i % VENDOR_PALETTE.length]);
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: vendors.map(v => {
+                const name = v.name.length > 22 ? v.name.slice(0, 21) + '\u2026' : v.name;
+                return v.month ? `${name}  ·  ${v.month}` : name;
+            }),
+            datasets: [{
+                label: 'Gaps',
+                data: vendors.map(v => v.gaps),
+                backgroundColor: colors.map(c => c + 'cc'),
+                borderColor: colors,
+                borderWidth: 1.5,
+                borderRadius: 5,
+                barThickness: 22,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: items => vendors[items[0].dataIndex].name,
+                        label: c => ` ${c.parsed.x} gaps  ·  Assessed ${vendors[c.dataIndex].month || 'N/A'}`,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
+                    grid: { color: '#e2e8f040' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } }
+                }
+            }
+        }
+    });
+})();
+
+// ── Chart 4: Monthly Trend Line ───────────────────────────────────
+(function () {
+    const ctx = document.getElementById('chart-monthly');
+    if (!ctx) return;
+    const monthly = {{ chart_monthly | tojson }};
+    const hasData = monthly.some(m => m.count > 0);
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthly.map(m => m.label),
+            datasets: [{
+                label: 'Assessments',
+                data: monthly.map(m => m.count),
+                borderColor: '#4f46e5',
+                backgroundColor: (ctx2) => {
+                    const chart = ctx2.chart;
+                    const {ctx: c, chartArea} = chart;
+                    if (!chartArea) return '#4f46e518';
+                    const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    gradient.addColorStop(0, '#4f46e533');
+                    gradient.addColorStop(1, '#4f46e502');
+                    return gradient;
+                },
+                fill: true,
+                tension: 0.45,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+                pointBackgroundColor: '#4f46e5',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                borderWidth: 2.5,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: c => ` ${c.parsed.y} assessment${c.parsed.y !== 1 ? 's' : ''}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
+                    grid: { color: '#e2e8f040' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 }, maxRotation: 30 }
+                }
+            }
+        }
+    });
+})();
+
+async function retryAssessment(id) {
+    if (!confirm('Retry the pipeline for this assessment? It will re-run from the beginning.')) return;
+    const resp = await fetch(`/api/assessments/${id}/run`, { method: 'POST', credentials: 'same-origin' });
+    if (!resp.ok) { alert('Failed to start: ' + (await resp.text())); return; }
+    window.location.href = `/assessments/${id}`;
+}
+
+// ── Dashboard Filters ─────────────────────────────────────────────
+(function () {
+    const rows = Array.from(document.querySelectorAll('#dash-tbody tr'));
+    const total = rows.length;
+
+    window.applyDashFilters = function () {
+        const div  = (document.getElementById('f-division')?.value  || '').trim();
+        const eng  = (document.getElementById('f-engagement')?.value || '').trim().toLowerCase();
+        const risk = (document.getElementById('f-risk')?.value       || '').trim().toLowerCase();
+
+        let shown = 0;
+        rows.forEach(row => {
+            const match =
+                (!div  || row.dataset.division  === div)  &&
+                (!eng  || (row.dataset.engagement  || '').toLowerCase() === eng)  &&
+                (!risk || (row.dataset.risk         || '').toLowerCase() === risk);
+            row.style.display = match ? '' : 'none';
+            if (match) shown++;
+        });
+
+        // Update count text
+        const countEl = document.getElementById('filter-count');
+        if (countEl) countEl.textContent = `${shown} of ${total} assessment${total !== 1 ? 's' : ''}`;
+
+        // Update badge
+        const badge = document.getElementById('dash-count-badge');
+        if (badge) badge.textContent = shown;
+
+        // Clear button visibility
+        const clearBtn = document.getElementById('clear-filters-btn');
+        if (clearBtn) clearBtn.style.display = (div || eng || risk) ? '' : 'none';
+
+        // No-results message
+        const noRes = document.getElementById('dash-no-results');
+        if (noRes) noRes.style.display = (shown === 0 && total > 0) ? '' : 'none';
+    };
+
+    window.clearDashFilters = function () {
+        ['f-division', 'f-engagement', 'f-risk'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        window.applyDashFilters();
+    };
+
+    // Initialize popovers for pre-assessment score breakdown
+    document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+        new bootstrap.Popover(el, { sanitize: false });
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+system: |
+  You are a legal and compliance expert specializing in vendor contract clauses
+  for information security and data protection. Always respond with valid JSON.
+
+user: |
+  Based on the following identified gaps and risk assessments, recommend specific
+  contract clauses that would mitigate each risk.
+
+  GAPS AND RISKS:
+  {{gaps_data}}
+
+  EXISTING CONTRACT CLAUSES:
+  {{existing_clauses}}
+
+  For each gap/risk, provide:
+  - A recommended contract clause with specific language
+  - Justification for why this clause addresses the risk
+  - Whether existing clauses already cover this risk
+
+  Return JSON:
+  {
+    "recommendations": [
+      {
+        "gap_id": "...",
+        "risk_level": "high",
+        "recommended_clause": "Vendor shall implement and maintain encryption...",
+        "justification": "This clause addresses the missing encryption evidence gap...",
+        "existing_coverage": "none | partial | adequate",
+        "priority": "must_have | should_have | nice_to_have"
+      }
+    ]
+  }

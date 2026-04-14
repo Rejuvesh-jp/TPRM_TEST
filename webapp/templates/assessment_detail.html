@@ -1,0 +1,1912 @@
+{% extends "base.html" %}
+{% block title %}{{ meta.vendor_name }} Assessment{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="/assessments">Assessments</a></li>
+                <li class="breadcrumb-item active">{{ meta.vendor_name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="mb-1">
+            <i class="bi bi-building me-2"></i>{{ meta.vendor_name }}
+            <span class="badge bg-primary ms-2" style="font-size:.75rem;vertical-align:middle">v{{ meta.version if meta.version else 1 }}</span>
+        </h2>
+        <span class="text-muted small">
+            Vendor ID: <span class="font-monospace fw-semibold">{{ meta.vendor_id if meta.vendor_id else '—' }}</span>
+            &nbsp;|&nbsp; Assessment: {{ meta.id[:8] }}...
+            &nbsp;|&nbsp; Created: {{ meta.created_at[:16] | replace('T', ' ') }}
+            {% if meta.division %}&nbsp;|&nbsp; Division: <span class="fw-semibold">{{ meta.division }}</span>{% endif %}
+            {% if meta.nature_of_engagement %}&nbsp;|&nbsp; Engagement:
+                {% if meta.nature_of_engagement == 'high' %}<span class="badge bg-danger-subtle text-danger">High</span>
+                {% elif meta.nature_of_engagement == 'medium' %}<span class="badge bg-warning-subtle text-warning">Medium</span>
+                {% elif meta.nature_of_engagement == 'low' %}<span class="badge bg-success-subtle text-success">Low</span>
+                {% endif %}
+                {% if meta.pre_assessment_scores %}
+                <span class="d-inline-block" tabindex="0" data-bs-toggle="popover" data-bs-trigger="click"
+                      data-bs-html="true" data-bs-placement="bottom"
+                      data-bs-title="Pre-Assessment Score Breakdown ({{ meta.pre_assessment_scores.total_score }} pts)"
+                      data-bs-content="{% for r in meta.pre_assessment_scores.responses %}{% if r.answer == 'yes' %}<div class='d-flex justify-content-between mb-1'><small>Q{{ r.q }}. {{ r.text[:60] }}{% if r.text|length > 60 %}...{% endif %}</small><span class='badge bg-danger ms-1'>+{{ r.score }}</span></div>{% endif %}{% endfor %}<hr class='my-1'><div class='d-flex justify-content-between fw-bold'><span>Total</span><span>{{ meta.pre_assessment_scores.total_score }}</span></div><small class='text-muted'>0-10: Low · 11-20: Medium · &gt;20: High</small>">
+                    <i class="bi bi-info-circle text-info" style="cursor:pointer;font-size:.8rem" title="View score breakdown"></i>
+                </span>
+                {% endif %}
+            {% endif %}
+            {% if meta.spoc_email %}&nbsp;|&nbsp; SPOC: <a href="mailto:{{ meta.spoc_email }}" class="text-decoration-none fw-semibold">{{ meta.spoc_email }}</a>{% endif %}
+            {% if meta.risk_rating %}&nbsp;|&nbsp; Risk:
+                {% if meta.risk_rating == 'high' %}<span class="badge bg-danger">HIGH</span>
+                {% elif meta.risk_rating == 'medium' %}<span class="badge bg-warning text-dark">MEDIUM</span>
+                {% elif meta.risk_rating == 'low' %}<span class="badge bg-success">LOW</span>
+                {% endif %}
+            {% endif %}
+        </span>
+    </div>
+    <div class="col-md-4 text-md-end">
+        {% if meta.status == 'completed' %}
+        <span class="badge bg-success fs-6 me-2"><i class="bi bi-check-circle me-1"></i>Completed</span>
+        {% elif meta.status == 'running' %}
+        <span class="badge bg-warning text-dark fs-6 me-2"><i class="bi bi-hourglass-split me-1"></i>Running</span>
+        {% elif meta.status == 'pending' %}
+        <span class="badge bg-secondary fs-6 me-2"><i class="bi bi-clock me-1"></i>Pending</span>
+        <a href="#" class="btn btn-primary btn-sm" onclick="runAssessment('{{ meta.id }}')">
+            <i class="bi bi-play-circle me-1"></i>Run Pipeline
+        </a>
+        {% elif meta.status == 'failed' %}
+        <span class="badge bg-danger fs-6 me-2"><i class="bi bi-x-circle me-1"></i>Failed</span>
+        <button class="btn btn-warning btn-sm" onclick="retryAssessment('{{ meta.id }}')">
+            <i class="bi bi-arrow-repeat me-1"></i>Retry Pipeline
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── Vendor Risk Rating Banner ── -->
+<div class="card border-0 shadow-sm mb-4" id="risk-rating-card">
+    <div class="card-body py-3">
+        <div class="row align-items-center g-3">
+            <div class="col-auto">
+                <span class="fw-semibold text-muted" style="font-size:.9rem;">
+                    <i class="bi bi-shield-exclamation me-1"></i>Vendor Risk Rating
+                </span>
+            </div>
+            <div class="col-auto" id="risk-badge-wrap">
+                {% if meta.risk_rating == 'high' %}
+                <span class="badge rounded-pill fs-6 px-4 py-2 bg-danger">
+                    <i class="bi bi-arrow-up-circle-fill me-1"></i>HIGH
+                </span>
+                {% elif meta.risk_rating == 'medium' %}
+                <span class="badge rounded-pill fs-6 px-4 py-2 bg-warning text-dark">
+                    <i class="bi bi-dash-circle-fill me-1"></i>MEDIUM
+                </span>
+                {% elif meta.risk_rating == 'low' %}
+                <span class="badge rounded-pill fs-6 px-4 py-2 bg-success">
+                    <i class="bi bi-arrow-down-circle-fill me-1"></i>LOW
+                </span>
+                {% else %}
+                <span class="badge rounded-pill fs-6 px-4 py-2 bg-secondary">
+                    <i class="bi bi-question-circle me-1"></i>Not Assigned
+                </span>
+                {% endif %}
+            </div>
+            <div class="col-auto ms-3 d-flex gap-2" id="risk-btn-group">
+                <button class="btn btn-sm {% if meta.risk_rating == 'high' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                        onclick="setRiskRating('high')" id="rbtn-high">
+                    <i class="bi bi-arrow-up-circle me-1"></i>High
+                </button>
+                <button class="btn btn-sm {% if meta.risk_rating == 'medium' %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                        onclick="setRiskRating('medium')" id="rbtn-medium">
+                    <i class="bi bi-dash-circle me-1"></i>Medium
+                </button>
+                <button class="btn btn-sm {% if meta.risk_rating == 'low' %}btn-success{% else %}btn-outline-success{% endif %}"
+                        onclick="setRiskRating('low')" id="rbtn-low">
+                    <i class="bi bi-arrow-down-circle me-1"></i>Low
+                </button>
+                {% if meta.risk_rating %}
+                <button class="btn btn-sm btn-outline-secondary" onclick="setRiskRating('')" id="rbtn-clear" title="Clear rating">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+                {% endif %}
+            </div>
+            <div class="col-auto" id="risk-saving" style="display:none;">
+                <span class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Saving…</span>
+            </div>
+            <div class="col-auto" id="risk-saved" style="display:none;">
+                <span class="text-success small"><i class="bi bi-check-circle me-1"></i>Saved</span>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+async function setRiskRating(rating) {
+    document.getElementById('risk-saving').style.display = '';
+    document.getElementById('risk-saved').style.display = 'none';
+    const resp = await fetch('/api/assessments/{{ meta.id }}/risk-rating', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'same-origin',
+        body: JSON.stringify({risk_rating: rating})
+    });
+    document.getElementById('risk-saving').style.display = 'none';
+    if (!resp.ok) { alert('Failed to save risk rating'); return; }
+
+    // Update badge
+    const badgeMap = {
+        high:   '<span class="badge rounded-pill fs-6 px-4 py-2 bg-danger"><i class="bi bi-arrow-up-circle-fill me-1"></i>HIGH</span>',
+        medium: '<span class="badge rounded-pill fs-6 px-4 py-2 bg-warning text-dark"><i class="bi bi-dash-circle-fill me-1"></i>MEDIUM</span>',
+        low:    '<span class="badge rounded-pill fs-6 px-4 py-2 bg-success"><i class="bi bi-arrow-down-circle-fill me-1"></i>LOW</span>',
+        '':     '<span class="badge rounded-pill fs-6 px-4 py-2 bg-secondary"><i class="bi bi-question-circle me-1"></i>Not Assigned</span>',
+    };
+    document.getElementById('risk-badge-wrap').innerHTML = badgeMap[rating] || badgeMap[''];
+
+    // Update button styles
+    ['high','medium','low'].forEach(r => {
+        const btn = document.getElementById('rbtn-' + r);
+        if (!btn) return;
+        const solidMap = {high:'btn-danger', medium:'btn-warning', low:'btn-success'};
+        const outlineMap = {high:'btn-outline-danger', medium:'btn-outline-warning', low:'btn-outline-success'};
+        btn.classList.remove(solidMap[r], outlineMap[r]);
+        btn.classList.add(r === rating ? solidMap[r] : outlineMap[r]);
+    });
+
+    // Show/hide clear button
+    const clearBtn = document.getElementById('rbtn-clear');
+    if (rating) {
+        if (!clearBtn) {
+            const btn = document.createElement('button');
+            btn.id = 'rbtn-clear'; btn.title = 'Clear rating';
+            btn.className = 'btn btn-sm btn-outline-secondary';
+            btn.innerHTML = '<i class="bi bi-x-circle"></i>';
+            btn.onclick = () => setRiskRating('');
+            document.getElementById('risk-btn-group').appendChild(btn);
+        }
+    } else {
+        if (clearBtn) clearBtn.remove();
+    }
+
+    document.getElementById('risk-saved').style.display = '';
+    setTimeout(() => { document.getElementById('risk-saved').style.display = 'none'; }, 2500);
+}
+</script>
+
+{% if meta.status == 'running' %}
+<!-- Running Progress -->
+<div class="card border-0 shadow-sm mb-4" id="running-card">
+    <div class="card-body text-center py-5">
+        <div class="spinner-border text-primary mb-3" role="status"></div>
+        <h5 id="run-label">Processing...</h5>
+        <div class="progress mx-auto mt-3" style="max-width: 500px; height: 20px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="run-bar"
+                 role="progressbar" style="width: 0%">0%</div>
+        </div>
+        <div id="run-steps" class="mt-3 mx-auto text-start" style="max-width: 400px;">
+            {% for i in range(1, 8) %}
+            <div class="step-tracker small" data-step="{{ i }}">
+                <i class="bi bi-circle"></i> Step {{ i }}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="mt-4 pt-3 border-top">
+            <p class="text-muted small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                You can freely navigate the application — the analysis will continue running in the background.
+                A notification will appear here and in your browser when it finishes.
+            </p>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    const id = '{{ meta.id }}';
+    const vendorName = {{ meta.vendor_name | tojson }};
+    // Register with global tracker so poller picks it up on any page
+    if (window.tprmTrackAssessment) window.tprmTrackAssessment(id, vendorName);
+})();
+</script>
+{% endif %}
+
+{% if meta.status == 'failed' %}
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>Pipeline Error:</strong> {{ meta.error or 'Unknown error' }}
+</div>
+{% endif %}
+
+{% if meta.status == 'pending' %}
+<!-- Pending: Show Input Summary -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent"><h5 class="mb-0">Uploaded Files</h5></div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col">
+                <h3>{{ input_counts.questionnaires }}</h3>
+                <small class="text-muted">Questionnaires</small>
+            </div>
+            <div class="col">
+                <h3>{{ input_counts.pre_business_assessment }}</h3>
+                <small class="text-muted">Pre-Business Assessment</small>
+            </div>
+            <div class="col">
+                <h3>{{ input_counts.artifacts }}</h3>
+                <small class="text-muted">Artifacts</small>
+            </div>
+            <div class="col">
+                <h3>{{ input_counts.policies }}</h3>
+                <small class="text-muted">Policies</small>
+            </div>
+            <div class="col">
+                <h3>{{ input_counts.contract_clauses }}</h3>
+                <small class="text-muted">Contract Clauses</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if report %}
+<!-- ═══════════ COMPLETED ASSESSMENT RESULTS ═══════════ -->
+
+<!-- Executive Summary -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-transparent border-bottom d-flex align-items-center justify-content-between">
+        <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>Executive Summary</h5>
+        <a href="/assessments/{{ meta.id }}/analytics" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-bar-chart-line me-1"></i>View Analytics Dashboard
+        </a>
+    </div>
+    <div class="card-body">
+        <!-- KPI strip -->
+        <div class="row text-center g-3 mb-4">
+            <div class="col">
+                <div class="border rounded p-3 h-100">
+                    <div class="text-muted small mb-1">Processing Time</div>
+                    <div class="fw-bold fs-4">{{ report.elapsed_seconds }}s</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="border rounded p-3 h-100">
+                    <div class="text-muted small mb-1">Mode</div>
+                    <div class="fw-bold fs-4">{{ report.pipeline_mode | upper }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="border rounded p-3 h-100">
+                    <div class="text-muted small mb-1">
+                        LLM Judge
+                        {% if report.llm_judge_ran %}
+                        <span class="d-inline-block" tabindex="0"
+                              data-bs-toggle="popover" data-bs-trigger="click"
+                              data-bs-html="true" data-bs-placement="top"
+                              data-bs-title="Judge Corrections"
+                              data-bs-content="{% if report.llm_judge_corrections %}{% for c in report.llm_judge_corrections %}<div>&bull; {{ c }}</div>{% endfor %}{% else %}<div>No corrections needed.</div>{% endif %}">
+                            <i class="bi bi-info-circle text-info" style="cursor:pointer"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if report.llm_judge_ran %}
+                        {% set correction_count = report.llm_judge_corrections | length %}
+                        <div class="fw-bold fs-5 text-success">
+                            <i class="bi bi-robot me-1"></i>
+                            {{ correction_count }} fix{{ 'es' if correction_count != 1 else '' }}
+                        </div>
+                    {% elif report.llm_judge_enabled and report.llm_judge_skipped_reason == 'mock_mode' %}
+                        <div class="fw-bold fs-6 text-warning">
+                            <i class="bi bi-robot me-1"></i>Skipped
+                        </div>
+                        <div class="text-muted" style="font-size:.7rem">Mock mode</div>
+                    {% elif report.llm_judge_enabled %}
+                        <div class="fw-bold fs-6 text-danger">
+                            <i class="bi bi-robot me-1"></i>Error
+                        </div>
+                    {% else %}
+                        <div class="fw-bold fs-6 text-secondary">
+                            <i class="bi bi-robot me-1"></i>Off
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col">
+                <div class="border rounded p-3 h-100">
+                    <div class="text-muted small mb-1">Division</div>
+                    <div class="fw-bold fs-4">{{ meta.division or 'N/A' }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="border rounded p-3 h-100">
+                    <div class="text-muted small mb-1">Nature of Engagement
+                        {% if meta.pre_assessment_scores %}
+                        <span class="d-inline-block" tabindex="0" data-bs-toggle="popover" data-bs-trigger="click"
+                              data-bs-html="true" data-bs-placement="top"
+                              data-bs-title="Score Breakdown ({{ meta.pre_assessment_scores.total_score }} pts)"
+                              data-bs-content="{% for r in meta.pre_assessment_scores.responses %}<div class='d-flex justify-content-between mb-1'><small>Q{{ r.q }}.</small><span class='badge {% if r.answer == 'yes' %}bg-danger{% else %}bg-secondary{% endif %} ms-1'>{{ r.answer|upper }}: {{ r.score }}</span></div>{% endfor %}<hr class='my-1'><div class='d-flex justify-content-between fw-bold'><span>Total</span><span>{{ meta.pre_assessment_scores.total_score }}</span></div>">
+                            <i class="bi bi-info-circle text-info" style="cursor:pointer" title="View score breakdown"></i>
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div class="fw-bold fs-4">
+                        {% if meta.nature_of_engagement == 'high' %}<span class="text-danger">High</span>
+                        {% elif meta.nature_of_engagement == 'medium' %}<span class="text-warning">Medium</span>
+                        {% elif meta.nature_of_engagement == 'low' %}<span class="text-success">Low</span>
+                        {% else %}{{ meta.nature_of_engagement or 'N/A' }}{% endif %}
+                        {% if meta.pre_assessment_scores %}<small class="text-muted fs-6">({{ meta.pre_assessment_scores.total_score }} pts)</small>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p class="lead">{{ report.summary.executive_summary }}</p>
+        <div class="mt-3">
+            <a href="/assessments/{{ meta.id }}/download/pdf" class="btn btn-outline-primary me-2">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF Report
+            </a>
+            <a href="/assessments/{{ meta.id }}/download/word" class="btn btn-outline-success">
+                <i class="bi bi-file-earmark-word me-1"></i>Download Word Report
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Input Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-2 col-sm-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <h4 class="mb-0">{{ report.input_summary.questionnaires }}</h4>
+            <small class="text-muted">Questionnaires</small>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <h4 class="mb-0">{{ report.input_summary.pre_business_assessments }}</h4>
+            <small class="text-muted">Pre-Business</small>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <h4 class="mb-0">{{ report.input_summary.total_questions }}</h4>
+            <small class="text-muted">Questions</small>
+        </div>
+    </div>
+    <div class="col-md-1 col-sm-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <h4 class="mb-0">{{ report.input_summary.artifacts }}</h4>
+            <small class="text-muted">Artifacts</small>
+        </div>
+    </div>
+
+    <div class="col-md-2 col-sm-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <h4 class="mb-0">{{ report.input_summary.policies }}</h4>
+            <small class="text-muted">Policies</small>
+        </div>
+    </div>
+    <div class="col-md-2 col-sm-4">
+        <div class="card border-0 shadow-sm text-center p-3">
+            <h4 class="mb-0">{{ report.input_summary.contract_clauses }}</h4>
+            <small class="text-muted">Clauses</small>
+        </div>
+    </div>
+</div>
+
+<!-- Tabbed Results Sections -->
+<ul class="nav nav-tabs mb-3" id="resultTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="gaps-tab" data-bs-toggle="tab"
+                data-bs-target="#gaps" type="button" role="tab">
+            <i class="bi bi-exclamation-diamond me-1"></i>Gaps <span class="badge bg-danger ms-1" id="gaps-tab-badge">{{ gaps|length }}</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="remedial-tab" data-bs-toggle="tab"
+                data-bs-target="#remedial" type="button" role="tab">
+            <i class="bi bi-tools me-1"></i>Remedial Plan <span class="badge bg-warning text-dark ms-1" id="remedial-tab-badge">{{ remedial_plan|length }}</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="recs-tab" data-bs-toggle="tab"
+                data-bs-target="#recs" type="button" role="tab">
+            <i class="bi bi-lightbulb me-1"></i>Recommendations <span class="badge bg-info ms-1" id="recs-tab-badge">{{ recommendations|length }}</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="compliance-tab" data-bs-toggle="tab"
+                data-bs-target="#compliance" type="button" role="tab">
+            <i class="bi bi-shield-check me-1"></i>Compliance
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="questionnaire-tab" data-bs-toggle="tab"
+                data-bs-target="#questionnaire" type="button" role="tab">
+            <i class="bi bi-clipboard-check me-1"></i>Questionnaire
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="resultTabContent">
+    <!-- Gaps Tab -->
+    <div class="tab-pane fade show active" id="gaps" role="tabpanel">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0">Identified Gaps <span class="text-muted fs-6 fw-normal" id="gap-count-badge">({{ gaps|length }})</span></h5>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Gap filter" id="gap-filter-group">
+                        <button type="button" class="btn btn-outline-secondary active" onclick="filterGaps('all')" data-filter="all">All</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="filterGaps('open')" data-filter="open"><i class="bi bi-circle-fill me-1" style="font-size:.55rem"></i>Open</button>
+                        <button type="button" class="btn btn-outline-success" onclick="filterGaps('closed')" data-filter="closed"><i class="bi bi-check-circle-fill me-1" style="font-size:.55rem"></i>Closed</button>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openAddGapModal()">
+                        <i class="bi bi-plus-lg me-1"></i>Add Gap
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" id="send-mail-btn" onclick="enterSendMailMode()" title="Select gaps and send via email">
+                        <i class="bi bi-envelope me-1"></i>Send Mail
+                    </button>
+                    <button class="btn btn-sm btn-info text-white d-none" id="send-selected-btn" onclick="openSendMailModal()" disabled>
+                        <i class="bi bi-send me-1"></i>Send Selected (<span id="selected-gap-count">0</span>)
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary d-none" id="cancel-select-btn" onclick="exitSendMailMode()">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="gaps-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="3%" class="d-none gap-select-col text-center"><input type="checkbox" id="select-all-gaps" onchange="toggleSelectAllGaps(this)" title="Select all"></th>
+                                <th width="4%">#</th>
+                                <th width="13%">Type</th>
+                                <th>Description</th>
+                                <th width="13%">Evidence</th>
+                                <th width="11%" class="text-center">Question ID</th>
+                                <th width="9%" class="text-center">Status</th>
+                                <th width="10%" class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gaps-tbody">
+                            {% for g in gaps %}
+                            {% set gs = g.gap_status if g.gap_status else 'open' %}
+                            {% set qid = g.related_question_id or '' %}
+                            <tr id="gap-row-{{ g.id }}" data-gap-id="{{ g.id }}" data-gap-status="{{ gs }}">
+                                <td class="d-none gap-select-col text-center"><input type="checkbox" class="gap-select-cb" value="{{ g.id }}" onchange="onGapCheckboxChange()"></td>
+                                <td class="text-muted small">{{ loop.index }}</td>
+                                <td><code class="small">{{ g.gap_type }}</code></td>
+                                <td>{{ g.description }}</td>
+                                <td class="small text-muted">{{ g.evidence_assessment or '\u2014' }}</td>
+                                <td class="text-center">
+                                    {% if qid %}
+                                    <button class="btn btn-sm btn-outline-info py-0 px-2 font-monospace" style="font-size:.72rem" title="View question &amp; response" onclick="showQuestion('{{ qid | e }}')">{{ qid }}</button>
+                                    {% else %}
+                                    <span class="text-muted small">\u2014</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center" id="gap-status-cell-{{ g.id }}">
+                                    {% if gs == 'closed' %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle small"><i class="bi bi-check-circle-fill me-1"></i>Closed</span>
+                                    {% else %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle small"><i class="bi bi-circle-fill me-1" style="font-size:.5rem;vertical-align:middle"></i>Open</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if gs != 'closed' %}
+                                    <button class="btn btn-sm btn-outline-success py-0 px-1 me-1" title="Close Gap"
+                                        id="gap-toggle-{{ g.id }}"
+                                        onclick="closeGap('{{ g.id }}')">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="Edit"
+                                        data-id="{{ g.id }}"
+                                        data-gap-type="{{ g.gap_type | e }}"
+                                        data-description="{{ g.description | e }}"
+                                        data-evidence="{{ (g.evidence_assessment or '') | e }}"
+                                        data-question-id="{{ (g.related_question_id or '') | e }}"
+                                        data-comments="{{ (g.comments or '') | e }}"
+                                        onclick="openEditGapModalFrom(this)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete" onclick="deleteGap('{{ g.id }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remedial Plan Tab -->
+    <div class="tab-pane fade" id="remedial" role="tabpanel">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-tools me-2"></i>Remedial Action Plan <span class="text-muted fs-6 fw-normal" id="remedial-count-badge">({{ remedial_plan|length }})</span></h5>
+                <button class="btn btn-sm btn-outline-warning" onclick="openAddRemedialModal()">
+                    <i class="bi bi-plus-lg me-1"></i>Add Action
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="remedial-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="4%">#</th>
+                                <th width="10%">Priority</th>
+                                <th>Action</th>
+                                <th width="14%">Timeline</th>
+                                <th width="16%">Owner</th>
+                                <th width="20%">Acceptance Criteria</th>
+                                <th width="8%" class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="remedial-tbody">
+                            {% for a in remedial_plan %}
+                            <tr id="remedial-row-{{ a.id }}" data-action-id="{{ a.id }}" data-gap-id="{{ (a.gap_id or '') | e }}">
+                                <td class="text-muted small">{{ loop.index }}</td>
+                                <td>
+                                    <span class="badge {% if a.priority == 'immediate' %}bg-danger{% elif a.priority == 'short_term' %}bg-warning text-dark{% elif a.priority == 'medium_term' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                        {{ a.priority | replace('_', ' ') | upper }}
+                                    </span>
+                                </td>
+                                <td>{{ a.action }}</td>
+                                <td class="small">{{ a.timeline or '—' }}</td>
+                                <td class="small">{{ a.owner or '—' }}</td>
+                                <td class="small text-muted">{{ a.acceptance_criteria or '—' }}</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="Edit"
+                                        data-id="{{ a.id }}"
+                                        data-action="{{ a.action | e }}"
+                                        data-priority="{{ a.priority | e }}"
+                                        data-timeline="{{ (a.timeline or '') | e }}"
+                                        data-owner="{{ (a.owner or '') | e }}"
+                                        data-criteria="{{ (a.acceptance_criteria or '') | e }}"
+                                        data-gap-id="{{ (a.gap_id or '') | e }}"
+                                        onclick="openEditRemedialModalFrom(this)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete" onclick="deleteRemedialAction('{{ a.id }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendations Tab -->
+    <div class="tab-pane fade" id="recs" role="tabpanel">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Contract Clause Recommendations</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="openAddRecModal()">
+                    <i class="bi bi-plus-lg me-1"></i>Add Recommendation
+                </button>
+            </div>
+            <div class="card-body">
+                {% if recommendations %}
+                <h6 class="text-muted mb-3"><i class="bi bi-shield-check me-1"></i>Recommendations (<span id="rec-count">{{ recommendations|length }}</span>)</h6>
+                <div id="recommendations-container">
+                {% for rec in recommendations %}
+                <div class="recommendation-card mb-3 p-3 border rounded" id="rec-card-{{ rec.id }}" data-rec-id="{{ rec.id }}" data-gap-id="{{ (rec.gap_id or '') | e }}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="mb-0">
+                            <span class="badge bg-primary me-2 rec-index">{{ loop.index }}</span>
+                            {% if rec.source == 'existing' %}
+                            <span class="badge bg-success me-1"><i class="bi bi-file-earmark-text me-1"></i>Existing Clause</span>
+                            {% elif rec.source == 'new' %}
+                            <span class="badge bg-info me-1"><i class="bi bi-plus-circle me-1"></i>New Suggestion</span>
+                            {% endif %}
+                            {% if rec.priority %}
+                            <span class="badge {% if rec.priority == 'must_have' %}bg-danger{% elif rec.priority == 'should_have' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {{ rec.priority | replace('_', ' ') | upper }}
+                            </span>
+                            {% endif %}
+                        </h6>
+                        <div class="d-flex gap-1">
+                            <span class="badge bg-light text-dark me-1">Coverage: {{ rec.existing_coverage or 'N/A' }}</span>
+                            <button class="btn btn-sm btn-outline-secondary py-0 px-1" title="Edit"
+                                data-id="{{ rec.id }}"
+                                data-clause="{{ rec.clause_text | e }}"
+                                data-justification="{{ rec.justification | e }}"
+                                data-source="{{ rec.source | e }}"
+                                data-priority="{{ rec.priority | e }}"
+                                data-coverage="{{ (rec.existing_coverage or 'none') | e }}"
+                                data-gap-id="{{ (rec.gap_id or '') | e }}"
+                                onclick="openEditRecModalFrom(this)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete" onclick="deleteRecommendation('{{ rec.id }}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <blockquote class="blockquote fs-6 mb-2">
+                        <p class="mb-0 rec-clause-text">"{{ rec.clause_text }}"</p>
+                    </blockquote>
+                    {% if rec.source_clause_id %}
+                    <small class="text-muted d-block mb-1"><strong>Source Clause ID:</strong> {{ rec.source_clause_id }}</small>
+                    {% endif %}
+                    <small class="text-muted"><strong>Justification:</strong> <span class="rec-justification">{{ rec.justification }}</span></small>
+                </div>
+                {% endfor %}
+                </div>
+                {% else %}
+                <div id="recommendations-container"></div>
+                <p class="text-muted">No recommendations generated.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Compliance Tab -->
+    <div class="tab-pane fade" id="compliance" role="tabpanel">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Policy Compliance Status</h5>
+            </div>
+            <div class="card-body">
+                {% if report.policy_compliance.compliant_areas %}
+                <h6 class="text-success"><i class="bi bi-check-circle me-1"></i>Compliant Areas</h6>
+                <ul class="list-group list-group-flush mb-3">
+                    {% for area in report.policy_compliance.compliant_areas %}
+                    <li class="list-group-item border-0 ps-0"><i class="bi bi-check2 text-success me-2"></i>{{ area }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if report.policy_compliance.partially_compliant %}
+                <h6 class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Partially Compliant</h6>
+                <ul class="list-group list-group-flush mb-3">
+                    {% for area in report.policy_compliance.partially_compliant %}
+                    <li class="list-group-item border-0 ps-0"><i class="bi bi-dash-circle text-warning me-2"></i>{{ area }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if report.policy_compliance.non_compliant %}
+                <h6 class="text-danger"><i class="bi bi-x-circle me-1"></i>Non-Compliant</h6>
+                <ul class="list-group list-group-flush mb-3">
+                    {% for area in report.policy_compliance.non_compliant %}
+                    <li class="list-group-item border-0 ps-0"><i class="bi bi-x-lg text-danger me-2"></i>{{ area }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Questionnaire Tab -->
+    <div class="tab-pane fade" id="questionnaire" role="tabpanel">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-transparent">
+                <h5 class="mb-0">Questionnaire Findings</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 text-center">
+                            <h3>{{ report.questionnaire_findings.total_questions }}</h3>
+                            <small class="text-muted">Total Questions</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 text-center">
+                            <h3 class="text-danger">{{ report.questionnaire_findings.missing_answers }}</h3>
+                            <small class="text-muted">Missing Answers</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 text-center">
+                            <h3 class="text-warning">{{ report.questionnaire_findings.weak_claims }}</h3>
+                            <small class="text-muted">Weak Claims</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 text-center">
+                            <h3 class="text-info">{{ report.questionnaire_findings.flagged_questions }}</h3>
+                            <small class="text-muted">Flagged Questions</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<!-- Delete Assessment -->
+<div class="mt-4 text-end">
+    <button class="btn btn-sm btn-outline-danger" onclick="deleteAssessment('{{ meta.id }}')">
+        <i class="bi bi-trash me-1"></i>Delete Assessment
+    </button>
+</div>
+
+<!-- ── Remedial Plan Modals ──────────────────────────────── -->
+<div class="modal fade" id="addRemedialModal" tabindex="-1" aria-labelledby="addRemedialModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addRemedialModalLabel"><i class="bi bi-plus-circle me-2"></i>Add Remedial Action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addRemedialForm">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Action Description <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="addRemedialAction" rows="3" placeholder="Specific action the vendor must take..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Priority</label>
+              <select class="form-select" id="addRemedialPriority">
+                <option value="immediate">Immediate (0–30 days)</option>
+                <option value="short_term">Short Term (30–90 days)</option>
+                <option value="medium_term" selected>Medium Term (3–6 months)</option>
+                <option value="long_term">Long Term (6–12 months)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Timeline</label>
+              <input type="text" class="form-control" id="addRemedialTimeline" placeholder="e.g. Within 90 days">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Owner</label>
+              <input type="text" class="form-control" id="addRemedialOwner" placeholder="e.g. Vendor IT Security Team">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Related Gap ID</label>
+              <input type="text" class="form-control" id="addRemedialGapId" placeholder="Optional: link to a gap ID">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Acceptance Criteria</label>
+              <textarea class="form-control" id="addRemedialCriteria" rows="2" placeholder="What evidence will confirm this is resolved..."></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-warning" onclick="saveAddRemedial()"><i class="bi bi-check-lg me-1"></i>Add Action</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editRemedialModal" tabindex="-1" aria-labelledby="editRemedialModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editRemedialModalLabel"><i class="bi bi-pencil me-2"></i>Edit Remedial Action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editRemedialForm">
+          <input type="hidden" id="editRemedialId">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Action Description <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="editRemedialAction" rows="3"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Priority</label>
+              <select class="form-select" id="editRemedialPriority">
+                <option value="immediate">Immediate (0–30 days)</option>
+                <option value="short_term">Short Term (30–90 days)</option>
+                <option value="medium_term">Medium Term (3–6 months)</option>
+                <option value="long_term">Long Term (6–12 months)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Timeline</label>
+              <input type="text" class="form-control" id="editRemedialTimeline">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Owner</label>
+              <input type="text" class="form-control" id="editRemedialOwner">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Related Gap ID</label>
+              <input type="text" class="form-control" id="editRemedialGapId">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Acceptance Criteria</label>
+              <textarea class="form-control" id="editRemedialCriteria" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-warning" onclick="saveEditRemedial()"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Send Mail Modal ────────────────────────────────────── -->
+<div class="modal fade" id="sendMailModal" tabindex="-1" aria-labelledby="sendMailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-info bg-opacity-10">
+        <h5 class="modal-title" id="sendMailModalLabel"><i class="bi bi-envelope-fill me-2 text-info"></i>Send Gaps via Email</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">To (Recipient)</label>
+          <input type="email" class="form-control" id="mail-recipient"
+                 value="{{ meta.spoc_email or '' }}"
+                 placeholder="Enter recipient email address"
+                 oninput="onRecipientInput()">
+          {% if not meta.spoc_email %}
+          <div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>No SPOC email is set for this assessment &mdash; you can type the recipient address above.</div>
+          {% else %}
+          <div class="form-text text-muted">Pre-filled with the Titan SPOC email. You can change it if needed.</div>
+          {% endif %}
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Subject</label>
+          <input type="text" class="form-control" id="mail-subject"
+                 value="TPRM Security Gaps &#8211; {{ meta.vendor_name | e }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">Selected Gaps</label>
+          <div id="mail-gaps-preview" class="border rounded p-2" style="max-height:260px;overflow-y:auto;background:#f8f9fa;">
+          </div>
+          <div class="form-text text-muted mt-1"><span id="mail-gaps-count">0</span> gap(s) will be included in the email.</div>
+        </div>
+        <div class="alert alert-warning d-none small" id="mail-no-spoc-alert">
+          <i class="bi bi-exclamation-triangle me-2"></i>Please enter a valid recipient email address to send the mail.
+        </div>
+        <div class="alert alert-danger d-none small" id="mail-error-alert"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-info text-white" id="mail-send-btn" onclick="confirmSendMail()">
+          <span id="mail-send-spinner" class="spinner-border spinner-border-sm me-1 d-none" role="status"></span>
+          <i class="bi bi-send me-1" id="mail-send-icon"></i>Send Email
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Gap Modals ──────────────────────────────────────────── -->
+
+<!-- Question Detail Modal -->
+<div class="modal fade" id="questionDetailModal" tabindex="-1" aria-labelledby="questionDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="questionDetailModalLabel"><i class="bi bi-question-circle me-2"></i>TPRM Question Detail</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <span class="badge bg-secondary font-monospace mb-2" id="qd-control-id" style="font-size:.85rem"></span>
+          <span class="ms-2 text-muted small" id="qd-section"></span>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-primary"><i class="bi bi-patch-question me-1"></i>Question</label>
+          <div class="p-3 rounded" style="background:var(--bg-secondary);line-height:1.6" id="qd-question"></div>
+        </div>
+        <div>
+          <label class="form-label fw-semibold text-success"><i class="bi bi-chat-left-text me-1"></i>Vendor Response</label>
+          <div class="p-3 rounded" style="background:var(--bg-secondary);line-height:1.6;white-space:pre-wrap" id="qd-response"></div>
+        </div>
+        <div id="qd-justification-wrap" class="mt-3" style="display:none">
+          <label class="form-label fw-semibold text-warning"><i class="bi bi-info-circle me-1"></i>Justification</label>
+          <div class="p-3 rounded" style="background:var(--bg-secondary);line-height:1.6;white-space:pre-wrap" id="qd-justification"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addGapModal" tabindex="-1" aria-labelledby="addGapModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addGapModalLabel"><i class="bi bi-plus-circle me-2"></i>Add Gap</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addGapForm">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Gap Type</label>
+              <select class="form-select" id="addGapType">
+                <option value="missing_artifact">Missing Artifact</option>
+                <option value="unsupported_claim" selected>Unsupported Claim</option>
+                <option value="policy_violation">Policy Violation</option>
+                <option value="control_missing">Control Missing</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Description <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="addGapDescription" rows="3" placeholder="Describe the gap clearly..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Related Question ID</label>
+              <input type="text" class="form-control" id="addGapQuestionId" placeholder="e.g. Q12">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Evidence Assessment</label>
+              <textarea class="form-control" id="addGapEvidence" rows="2" placeholder="Supporting evidence..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Comments</label>
+              <textarea class="form-control" id="addGapComments" rows="3" placeholder="Additional comments about this gap..."></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveAddGap()"><i class="bi bi-check-lg me-1"></i>Add Gap</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editGapModal" tabindex="-1" aria-labelledby="editGapModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editGapModalLabel"><i class="bi bi-pencil me-2"></i>Edit Gap</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editGapForm">
+          <input type="hidden" id="editGapId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Gap Type</label>
+              <select class="form-select" id="editGapType">
+                <option value="missing_artifact">Missing Artifact</option>
+                <option value="unsupported_claim">Unsupported Claim</option>
+                <option value="policy_violation">Policy Violation</option>
+                <option value="control_missing">Control Missing</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Description <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="editGapDescription" rows="3"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Related Question ID</label>
+              <input type="text" class="form-control" id="editGapQuestionId">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Evidence Assessment</label>
+              <textarea class="form-control" id="editGapEvidence" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Comments</label>
+              <textarea class="form-control" id="editGapComments" rows="3" placeholder="Additional comments about this gap..."></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveEditGap()"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Recommendation Modals ──────────────────────────────── -->
+<div class="modal fade" id="addRecModal" tabindex="-1" aria-labelledby="addRecModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addRecModalLabel"><i class="bi bi-plus-circle me-2"></i>Add Recommendation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addRecForm">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Clause Text <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="addRecClause" rows="4" placeholder="Recommended contract clause text..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Justification</label>
+              <textarea class="form-control" id="addRecJustification" rows="2" placeholder="Why this clause is needed..."></textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Source</label>
+              <select class="form-select" id="addRecSource">
+                <option value="new" selected>New Suggestion</option>
+                <option value="existing">Existing Clause</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Priority</label>
+              <select class="form-select" id="addRecPriority">
+                <option value="must_have">Must Have</option>
+                <option value="should_have" selected>Should Have</option>
+                <option value="nice_to_have">Nice to Have</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Existing Coverage</label>
+              <select class="form-select" id="addRecCoverage">
+                <option value="none" selected>None</option>
+                <option value="partial">Partial</option>
+                <option value="adequate">Adequate</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Related Gap ID</label>
+              <input type="text" class="form-control" id="addRecGapId" placeholder="Optional: link to a gap ID">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveAddRec()"><i class="bi bi-check-lg me-1"></i>Add Recommendation</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editRecModal" tabindex="-1" aria-labelledby="editRecModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editRecModalLabel"><i class="bi bi-pencil me-2"></i>Edit Recommendation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editRecForm">
+          <input type="hidden" id="editRecId">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold">Clause Text <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="editRecClause" rows="4"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Justification</label>
+              <textarea class="form-control" id="editRecJustification" rows="2"></textarea>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Source</label>
+              <select class="form-select" id="editRecSource">
+                <option value="new">New Suggestion</option>
+                <option value="existing">Existing Clause</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Priority</label>
+              <select class="form-select" id="editRecPriority">
+                <option value="must_have">Must Have</option>
+                <option value="should_have">Should Have</option>
+                <option value="nice_to_have">Nice to Have</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Existing Coverage</label>
+              <select class="form-select" id="editRecCoverage">
+                <option value="none">None</option>
+                <option value="partial">Partial</option>
+                <option value="adequate">Adequate</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Related Gap ID</label>
+              <input type="text" class="form-control" id="editRecGapId">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveEditRec()"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const assessmentId = '{{ meta.id }}';
+
+// Map of control_id → {question_text, response_text, justification, section}
+const QUESTIONS_MAP = {{ questions_map | tojson }};
+
+function showQuestion(controlId) {
+    const q = QUESTIONS_MAP[controlId];
+    document.getElementById('qd-control-id').textContent = controlId;
+    if (q) {
+        document.getElementById('qd-section').textContent = q.section ? '§ ' + q.section : '';
+        document.getElementById('qd-question').textContent = q.question_text || '(no question text)';
+        const resp = q.response_text ? q.response_text.trim() : '';
+        document.getElementById('qd-response').textContent = resp || '— No response provided —';
+        document.getElementById('qd-response').style.color = resp ? '' : 'var(--text-muted)';
+        const just = q.justification ? q.justification.trim() : '';
+        if (just) {
+            document.getElementById('qd-justification').textContent = just;
+            document.getElementById('qd-justification-wrap').style.display = '';
+        } else {
+            document.getElementById('qd-justification-wrap').style.display = 'none';
+        }
+    } else {
+        document.getElementById('qd-section').textContent = '';
+        document.getElementById('qd-question').textContent = '(Question data not available — assessment may have been run before this feature was added)';
+        document.getElementById('qd-response').textContent = '';
+        document.getElementById('qd-justification-wrap').style.display = 'none';
+    }
+    new bootstrap.Modal(document.getElementById('questionDetailModal')).show();
+}
+async function runAssessment(id) {
+    if (!confirm('Start the assessment pipeline?')) return;
+    const resp = await fetch(`/api/assessments/${id}/run`, { method: 'POST', credentials: 'same-origin' });
+    if (!resp.ok) { alert('Failed to start pipeline.'); return; }
+    // Register with global background tracker so any page can receive the notification
+    const vendorName = {{ meta.vendor_name | tojson }};
+    if (window.tprmTrackAssessment) window.tprmTrackAssessment(id, vendorName);
+    // Redirect to assessments list — user can freely explore the app while it runs
+    window.location.href = '/assessments';
+}
+
+async function deleteAssessment(id) {
+    if (!confirm('Are you sure you want to delete this assessment? This cannot be undone.')) return;
+    const resp = await fetch(`/api/assessments/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (!resp.ok) {
+        alert('Failed to delete assessment: ' + (await resp.text()));
+        return;
+    }
+    window.location.href = '/assessments';
+}
+
+// ─── Utility ──────────────────────────────────────────────────────────────
+function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _rebuildSeverityBadges() {
+    // No longer need to update Open Gaps summary card since it's removed
+}
+
+function showToast(message, type = 'info') {
+    const toastEl = document.createElement('div');
+    const bgClass = type === 'success' ? 'text-bg-success' : type === 'warning' ? 'text-bg-warning' : type === 'danger' ? 'text-bg-danger' : 'text-bg-info';
+    toastEl.className = `toast align-items-center ${bgClass} border-0 position-fixed bottom-0 end-0 m-3`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.style.zIndex = 9999;
+    toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div><button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+    document.body.appendChild(toastEl);
+    bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 5000 }).show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
+function filterGaps(status) {
+    // Update active button
+    document.querySelectorAll('#gap-filter-group button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === status);
+    });
+    const rows = document.getElementById('gaps-tbody').querySelectorAll('tr');
+    let visible = 0;
+    rows.forEach(tr => {
+        const rowStatus = tr.dataset.gapStatus || 'open';
+        const show = status === 'all' || rowStatus === status;
+        tr.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    document.getElementById('gap-count-badge').textContent = `(${visible})`;
+}
+
+async function closeGap(gapId) {
+    // Only allow closing gaps (no reopening)
+    if (!confirm('This will permanently close the gap and delete all related recommendations and remedial plans. Continue?')) {
+        return;
+    }
+    
+    const resp = await fetch(`/api/assessments/${assessmentId}/gaps/${gapId}/status`, {
+        method: 'PATCH', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gap_status: 'closed' })
+    });
+    
+    if (!resp.ok) { 
+        alert('Failed to close gap: ' + (await resp.text())); 
+        return; 
+    }
+    
+    const result = await resp.json();
+    
+    // Update gap status in UI
+    const tr = document.getElementById(`gap-row-${gapId}`);
+    tr.dataset.gapStatus = 'closed';
+    
+    // Update status badge cell
+    const statusCell = document.getElementById(`gap-status-cell-${gapId}`);
+    statusCell.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle small"><i class="bi bi-check-circle-fill me-1"></i>Closed</span>`;
+    
+    // Remove toggle button (gap can't be reopened)
+    const toggleBtn = document.getElementById(`gap-toggle-${gapId}`);
+    if (toggleBtn) {
+        toggleBtn.remove();
+    }
+    
+    // Remove all linked recommendations and remedial plans from DOM
+    const linkedRecs = document.querySelectorAll(`#recommendations-container [data-gap-id="${gapId}"]`);
+    const linkedRemedial = document.querySelectorAll(`#remedial-tbody tr[data-gap-id="${gapId}"]`);
+    
+    linkedRecs.forEach(el => el.remove());
+    linkedRemedial.forEach(el => el.remove());
+    
+    // Update recommendation and remedial counts
+    const recN = document.getElementById('recommendations-container').querySelectorAll('.recommendation-card').length;
+    document.getElementById('rec-count').textContent = recN;
+    document.getElementById('recs-tab-badge').textContent = recN;
+    
+    const remN = document.getElementById('remedial-tbody').querySelectorAll('tr').length;
+    document.getElementById('remedial-count-badge').textContent = `(${remN})`;
+    document.getElementById('remedial-tab-badge').textContent = remN;
+    
+    // Re-number remaining items
+    _renumberRemedial();
+    _renumberRecs();
+    
+    // Re-apply current filter
+    const activeFilter = document.querySelector('#gap-filter-group button.active');
+    if (activeFilter && activeFilter.dataset.filter !== 'all') {
+        filterGaps(activeFilter.dataset.filter);
+    }
+    
+    // Show confirmation message
+    showToast(`Gap closed. Removed ${result.removed_recommendations} recommendation(s) and ${result.removed_remedial_actions} remedial action(s).`, 'success');
+}
+
+// ─── Remedial Plan Functions ───────────────────────────────────────────────
+function _priorityBadgeClass(p) {
+    return p === 'immediate' ? 'bg-danger'
+         : p === 'short_term' ? 'bg-warning text-dark'
+         : p === 'medium_term' ? 'bg-info text-dark'
+         : 'bg-secondary';
+}
+
+function _priorityLabel(p) {
+    return (p || '').replace(/_/g, ' ').toUpperCase();
+}
+
+function _updateRemedialCount() {
+    const n = document.getElementById('remedial-tbody').querySelectorAll('tr:not(.d-none)').length;
+    document.getElementById('remedial-count-badge').textContent = `(${n})`;
+    document.getElementById('remedial-tab-badge').textContent = n;
+}
+
+function _renumberRemedial() {
+    let i = 1;
+    document.getElementById('remedial-tbody').querySelectorAll('tr:not(.d-none)').forEach(tr => {
+        tr.cells[0].textContent = i++;
+    });
+}
+
+function _renumberRecs() {
+    let i = 1;
+    document.getElementById('recommendations-container').querySelectorAll('.recommendation-card:not(.d-none)').forEach(card => {
+        const idx = card.querySelector('.rec-index');
+        if (idx) idx.textContent = i++;
+    });
+}
+
+async function deleteRemedialAction(id) {
+    if (!confirm('Delete this remedial action? This will also update exports.')) return;
+    const resp = await fetch(`/api/assessments/${assessmentId}/remedial/${id}`, {
+        method: 'DELETE', credentials: 'same-origin'
+    });
+    if (!resp.ok) { alert('Error deleting action: ' + (await resp.text())); return; }
+    document.getElementById(`remedial-row-${id}`).remove();
+    _updateRemedialCount();
+    _renumberRemedial();
+}
+
+function openAddRemedialModal() {
+    document.getElementById('addRemedialForm').reset();
+    new bootstrap.Modal(document.getElementById('addRemedialModal')).show();
+}
+
+function openEditRemedialModalFrom(btn) {
+    document.getElementById('editRemedialId').value = btn.dataset.id;
+    document.getElementById('editRemedialAction').value = btn.dataset.action;
+    document.getElementById('editRemedialPriority').value = btn.dataset.priority;
+    document.getElementById('editRemedialTimeline').value = btn.dataset.timeline || '';
+    document.getElementById('editRemedialOwner').value = btn.dataset.owner || '';
+    document.getElementById('editRemedialCriteria').value = btn.dataset.criteria || '';
+    document.getElementById('editRemedialGapId').value = btn.dataset.gapId || '';
+    new bootstrap.Modal(document.getElementById('editRemedialModal')).show();
+}
+
+async function saveAddRemedial() {
+    const body = {
+        action: document.getElementById('addRemedialAction').value.trim(),
+        priority: document.getElementById('addRemedialPriority').value,
+        timeline: document.getElementById('addRemedialTimeline').value.trim(),
+        owner: document.getElementById('addRemedialOwner').value.trim(),
+        acceptance_criteria: document.getElementById('addRemedialCriteria').value.trim(),
+        gap_id: document.getElementById('addRemedialGapId').value.trim(),
+    };
+    if (!body.action) { alert('Action description is required.'); return; }
+    const resp = await fetch(`/api/assessments/${assessmentId}/remedial`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!resp.ok) { alert('Error adding action: ' + (await resp.text())); return; }
+    const a = await resp.json();
+    const tbody = document.getElementById('remedial-tbody');
+    const rowNum = tbody.querySelectorAll('tr').length + 1;
+    const tr = document.createElement('tr');
+    tr.id = `remedial-row-${a.id}`;
+    tr.dataset.actionId = a.id;
+    tr.dataset.gapId = a.gap_id || '';
+    tr.innerHTML = `
+        <td class="text-muted small">${rowNum}</td>
+        <td><span class="badge ${_priorityBadgeClass(a.priority)}">${_priorityLabel(a.priority)}</span></td>
+        <td>${escHtml(a.action)}</td>
+        <td class="small">${escHtml(a.timeline || '—')}</td>
+        <td class="small">${escHtml(a.owner || '—')}</td>
+        <td class="small text-muted">${escHtml(a.acceptance_criteria || '—')}</td>
+        <td class="text-center">
+            <button class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="Edit"
+                data-id="${escHtml(a.id)}"
+                data-action="${escHtml(a.action)}"
+                data-priority="${escHtml(a.priority)}"
+                data-timeline="${escHtml(a.timeline||'')}"
+                data-owner="${escHtml(a.owner||'')}"
+                data-criteria="${escHtml(a.acceptance_criteria||'')}"
+                data-gap-id="${escHtml(a.gap_id||'')}"
+                onclick="openEditRemedialModalFrom(this)">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete" onclick="deleteRemedialAction('${escHtml(a.id)}')">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    _updateRemedialCount();
+    bootstrap.Modal.getInstance(document.getElementById('addRemedialModal')).hide();
+}
+
+async function saveEditRemedial() {
+    const id = document.getElementById('editRemedialId').value;
+    const body = {
+        action: document.getElementById('editRemedialAction').value.trim(),
+        priority: document.getElementById('editRemedialPriority').value,
+        timeline: document.getElementById('editRemedialTimeline').value.trim(),
+        owner: document.getElementById('editRemedialOwner').value.trim(),
+        acceptance_criteria: document.getElementById('editRemedialCriteria').value.trim(),
+        gap_id: document.getElementById('editRemedialGapId').value.trim(),
+    };
+    if (!body.action) { alert('Action description is required.'); return; }
+    const resp = await fetch(`/api/assessments/${assessmentId}/remedial/${id}`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!resp.ok) { alert('Error updating action: ' + (await resp.text())); return; }
+    const a = await resp.json();
+    const tr = document.getElementById(`remedial-row-${id}`);
+    tr.cells[1].innerHTML = `<span class="badge ${_priorityBadgeClass(a.priority)}">${_priorityLabel(a.priority)}</span>`;
+    tr.cells[2].textContent = a.action;
+    tr.cells[3].textContent = a.timeline || '—';
+    tr.cells[4].textContent = a.owner || '—';
+    tr.cells[5].textContent = a.acceptance_criteria || '—';
+    const editBtn = tr.querySelector('button[title="Edit"]');
+    editBtn.dataset.action = a.action;
+    editBtn.dataset.priority = a.priority;
+    editBtn.dataset.timeline = a.timeline || '';
+    editBtn.dataset.owner = a.owner || '';
+    editBtn.dataset.criteria = a.acceptance_criteria || '';
+    editBtn.dataset.gapId = a.gap_id || '';
+    bootstrap.Modal.getInstance(document.getElementById('editRemedialModal')).hide();
+}
+
+// ─── Gap Functions ─────────────────────────────────────────────────────────
+async function deleteGap(id) {
+    if (!confirm('Delete this gap? Any linked recommended clauses and remedial actions will also be removed.')) return;
+    const resp = await fetch(`/api/assessments/${assessmentId}/gaps/${id}`, {
+        method: 'DELETE', credentials: 'same-origin'
+    });
+    if (!resp.ok) { alert('Error deleting gap: ' + (await resp.text())); return; }
+    const data = await resp.json();
+    
+    // Remove gap row from DOM
+    document.getElementById(`gap-row-${id}`).remove();
+    
+    // Renumber remaining gaps
+    document.getElementById('gaps-tbody').querySelectorAll('tr')
+        .forEach((tr, i) => { tr.cells[1].textContent = i + 1; });
+    
+    // Remove linked recommendation and remedial action rows from the DOM
+    document.querySelectorAll(`#recommendations-container [data-gap-id="${id}"]`).forEach(el => el.remove());
+    document.querySelectorAll(`#remedial-tbody tr[data-gap-id="${id}"]`).forEach(el => el.remove());
+    
+    // Update all counts
+    _rebuildSeverityBadges();
+    _updateRemedialCount();
+    
+    // Update identified gaps count in both locations
+    const totalGaps = document.getElementById('gaps-tbody').querySelectorAll('tr').length;
+    document.getElementById('gap-count-badge').textContent = `(${totalGaps})`;
+    document.getElementById('gaps-tab-badge').textContent = totalGaps;
+    
+    // Update recommendation counts
+    const recN = document.getElementById('recommendations-container').querySelectorAll('.recommendation-card').length;
+    document.getElementById('rec-count').textContent = recN;
+    document.getElementById('recs-tab-badge').textContent = recN;
+    
+    // Renumber remaining items
+    _renumberRemedial();
+    _renumberRecs();
+    
+    // Show notification of deleted items
+    const extra = [];
+    if (data.removed_recommendations > 0) extra.push(`${data.removed_recommendations} recommendation${data.removed_recommendations > 1 ? 's' : ''}`);
+    if (data.removed_remedial_actions > 0) extra.push(`${data.removed_remedial_actions} remedial action${data.removed_remedial_actions > 1 ? 's' : ''}`);
+    
+    let message = 'Gap deleted successfully.';
+    if (extra.length) {
+        message += ` Also removed: ${extra.join(' and ')}.`;
+    }
+    showToast(message, 'warning');
+}
+
+function openAddGapModal() {
+    document.getElementById('addGapForm').reset();
+    new bootstrap.Modal(document.getElementById('addGapModal')).show();
+}
+
+function openEditGapModalFrom(btn) {
+    openEditGapModal(
+        btn.dataset.id,
+        btn.dataset.gapType,
+        btn.dataset.description,
+        btn.dataset.evidence,
+        btn.dataset.questionId,
+        btn.dataset.comments
+    );
+}
+
+function openEditGapModal(id, gap_type, description, evidence, question_id, comments) {
+    document.getElementById('editGapId').value = id;
+    document.getElementById('editGapType').value = gap_type;
+    document.getElementById('editGapDescription').value = description;
+    document.getElementById('editGapEvidence').value = evidence || '';
+    document.getElementById('editGapQuestionId').value = question_id || '';
+    document.getElementById('editGapComments').value = comments || '';
+    new bootstrap.Modal(document.getElementById('editGapModal')).show();
+}
+
+async function saveAddGap() {
+    const body = {
+        gap_type: document.getElementById('addGapType').value,
+        description: document.getElementById('addGapDescription').value.trim(),
+        related_question_id: document.getElementById('addGapQuestionId').value.trim(),
+        evidence_assessment: document.getElementById('addGapEvidence').value.trim(),
+        comments: document.getElementById('addGapComments').value.trim(),
+    };
+    if (!body.description) { alert('Description is required.'); return; }
+    const resp = await fetch(`/api/assessments/${assessmentId}/gaps`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!resp.ok) { alert('Error adding gap: ' + (await resp.text())); return; }
+    const g = await resp.json();
+    const tbody = document.getElementById('gaps-tbody');
+    const rowNum = tbody.querySelectorAll('tr:not([style*="display: none"])').length + 1;
+    const tr = document.createElement('tr');
+    tr.id = `gap-row-${g.id}`;
+    tr.dataset.gapId = g.id;
+    tr.dataset.gapStatus = 'open';
+    const qidNew = escHtml(g.related_question_id || '');
+    const qidCellHtml = qidNew
+        ? `<button class="btn btn-sm btn-outline-info py-0 px-2 font-monospace" style="font-size:.72rem" title="View question &amp; response" onclick="showQuestion('${qidNew}')">${qidNew}</button>`
+        : `<span class="text-muted small">\u2014</span>`;
+    tr.innerHTML = `
+        <td class="d-none gap-select-col text-center"><input type="checkbox" class="gap-select-cb" value="${escHtml(g.id)}" onchange="onGapCheckboxChange()"></td>
+        <td class="text-muted small">${rowNum}</td>
+        <td><code class="small">${escHtml(g.gap_type)}</code></td>
+        <td>${escHtml(g.description)}</td>
+        <td class="small text-muted">${escHtml(g.evidence_assessment || '\u2014')}</td>
+        <td class="text-center">${qidCellHtml}</td>
+        <td class="text-center" id="gap-status-cell-${escHtml(g.id)}">
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle small"><i class="bi bi-circle-fill me-1" style="font-size:.5rem;vertical-align:middle"></i>Open</span>
+        </td>
+        <td class="text-center">
+            <button class="btn btn-sm btn-outline-success py-0 px-1 me-1" title="Close Gap"
+                id="gap-toggle-${escHtml(g.id)}"
+                onclick="closeGap('${escHtml(g.id)}')">
+                <i class="bi bi-check-lg"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="Edit"
+                data-id="${escHtml(g.id)}"
+                data-gap-type="${escHtml(g.gap_type)}"
+                data-description="${escHtml(g.description)}"
+                data-evidence="${escHtml(g.evidence_assessment||'')}"
+                data-question-id="${escHtml(g.related_question_id||'')}"
+                data-comments="${escHtml(g.comments||'')}"
+                onclick="openEditGapModalFrom(this)">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete" onclick="deleteGap('${escHtml(g.id)}')">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    _rebuildSeverityBadges();
+    bootstrap.Modal.getInstance(document.getElementById('addGapModal')).hide();
+}
+
+async function saveEditGap() {
+    const id = document.getElementById('editGapId').value;
+    const body = {
+        gap_type: document.getElementById('editGapType').value,
+        description: document.getElementById('editGapDescription').value.trim(),
+        related_question_id: document.getElementById('editGapQuestionId').value.trim(),
+        evidence_assessment: document.getElementById('editGapEvidence').value.trim(),
+        comments: document.getElementById('editGapComments').value.trim(),
+    };
+    if (!body.description) { alert('Description is required.'); return; }
+    const resp = await fetch(`/api/assessments/${assessmentId}/gaps/${id}`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!resp.ok) { alert('Error updating gap: ' + (await resp.text())); return; }
+    const g = await resp.json();
+    const tr = document.getElementById(`gap-row-${id}`);
+    // cells[0]=checkbox(hidden), [1]=#, [2]=type, [3]=description, [4]=evidence, [5]=questionId, [6]=status, [7]=actions
+    tr.cells[2].innerHTML = `<code class="small">${escHtml(g.gap_type)}</code>`;
+    tr.cells[3].textContent = g.description;
+    tr.cells[4].textContent = g.evidence_assessment || '\u2014';
+    const qid = g.related_question_id || '';
+    tr.cells[5].innerHTML = qid
+        ? `<button class="btn btn-sm btn-outline-info py-0 px-2 font-monospace" style="font-size:.72rem" title="View question &amp; response" onclick="showQuestion('${escHtml(qid)}')">${escHtml(qid)}</button>`
+        : `<span class="text-muted small">\u2014</span>`;
+    const editBtn = tr.cells[7].querySelector('button[title="Edit"]');
+    editBtn.dataset.id = g.id;
+    editBtn.dataset.gapType = g.gap_type;
+    editBtn.dataset.description = g.description;
+    editBtn.dataset.evidence = g.evidence_assessment || '';
+    editBtn.dataset.questionId = g.related_question_id || '';
+    editBtn.dataset.comments = g.comments || '';
+    _rebuildSeverityBadges();
+    bootstrap.Modal.getInstance(document.getElementById('editGapModal')).hide();
+}
+
+// ─── Recommendation Functions ──────────────────────────────────────────────
+async function deleteRecommendation(id) {
+    if (!confirm('Delete this recommendation? This will also update exports.')) return;
+    const resp = await fetch(`/api/assessments/${assessmentId}/recommendations/${id}`, {
+        method: 'DELETE', credentials: 'same-origin'
+    });
+    if (!resp.ok) { alert('Error deleting recommendation: ' + (await resp.text())); return; }
+    document.getElementById(`rec-card-${id}`).remove();
+    const container = document.getElementById('recommendations-container');
+    _renumberRecs();
+    const n = container.querySelectorAll('.recommendation-card:not(.d-none)').length;
+    const countEl = document.getElementById('rec-count');
+    if (countEl) countEl.textContent = n;
+    document.getElementById('recs-tab-badge').textContent = n;
+}
+
+function openAddRecModal() {
+    document.getElementById('addRecForm').reset();
+    new bootstrap.Modal(document.getElementById('addRecModal')).show();
+}
+
+function openEditRecModalFrom(btn) {
+    openEditRecModal(
+        btn.dataset.id,
+        btn.dataset.clause,
+        btn.dataset.justification,
+        btn.dataset.source,
+        btn.dataset.priority,
+        btn.dataset.coverage,
+        btn.dataset.gapId
+    );
+}
+
+function openEditRecModal(id, clause_text, justification, source, priority, coverage, gap_id) {
+    document.getElementById('editRecId').value = id;
+    document.getElementById('editRecClause').value = clause_text;
+    document.getElementById('editRecJustification').value = justification;
+    document.getElementById('editRecSource').value = source;
+    document.getElementById('editRecPriority').value = priority;
+    document.getElementById('editRecCoverage').value = coverage || 'none';
+    document.getElementById('editRecGapId').value = gap_id || '';
+    new bootstrap.Modal(document.getElementById('editRecModal')).show();
+}
+
+async function saveAddRec() {
+    const body = {
+        clause_text: document.getElementById('addRecClause').value.trim(),
+        justification: document.getElementById('addRecJustification').value.trim(),
+        source: document.getElementById('addRecSource').value,
+        priority: document.getElementById('addRecPriority').value,
+        existing_coverage: document.getElementById('addRecCoverage').value,
+        gap_id: document.getElementById('addRecGapId').value.trim(),
+    };
+    if (!body.clause_text) { alert('Clause text is required.'); return; }
+    const resp = await fetch(`/api/assessments/${assessmentId}/recommendations`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!resp.ok) { alert('Error adding recommendation: ' + (await resp.text())); return; }
+    const r = await resp.json();
+    const container = document.getElementById('recommendations-container');
+    const count = container.querySelectorAll('.recommendation-card').length + 1;
+    const srcBadge = r.source === 'existing'
+        ? `<span class="badge bg-success me-1"><i class="bi bi-file-earmark-text me-1"></i>Existing Clause</span>`
+        : `<span class="badge bg-info me-1"><i class="bi bi-plus-circle me-1"></i>New Suggestion</span>`;
+    const priBadgeClass = r.priority === 'must_have' ? 'bg-danger' : r.priority === 'should_have' ? 'bg-warning text-dark' : 'bg-secondary';
+    const div = document.createElement('div');
+    div.className = 'recommendation-card mb-3 p-3 border rounded';
+    div.id = `rec-card-${r.id}`;
+    div.dataset.recId = r.id;
+    div.dataset.gapId = r.gap_id || '';
+    div.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="mb-0">
+                <span class="badge bg-primary me-2 rec-index">${count}</span>
+                ${srcBadge}
+                <span class="badge ${priBadgeClass}">${escHtml(r.priority).replace(/_/g,' ').toUpperCase()}</span>
+            </h6>
+            <div class="d-flex gap-1">
+                <span class="badge bg-light text-dark me-1">Coverage: ${escHtml(r.existing_coverage||'N/A')}</span>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-1" title="Edit"
+                    data-id="${escHtml(r.id)}"
+                    data-clause="${escHtml(r.clause_text)}"
+                    data-justification="${escHtml(r.justification)}"
+                    data-source="${escHtml(r.source)}"
+                    data-priority="${escHtml(r.priority)}"
+                    data-coverage="${escHtml(r.existing_coverage||'none')}"
+                    data-gap-id="${escHtml(r.gap_id||'')}"
+                    onclick="openEditRecModalFrom(this)">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete" onclick="deleteRecommendation('${escHtml(r.id)}')">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+        <blockquote class="blockquote fs-6 mb-2">
+            <p class="mb-0 rec-clause-text">"${escHtml(r.clause_text)}"</p>
+        </blockquote>
+        <small class="text-muted"><strong>Justification:</strong> <span class="rec-justification">${escHtml(r.justification)}</span></small>`;
+    container.appendChild(div);
+    const visibleRecCount = container.querySelectorAll('.recommendation-card:not(.d-none)').length;
+    const countEl = document.getElementById('rec-count');
+    if (countEl) countEl.textContent = visibleRecCount;
+    document.getElementById('recs-tab-badge').textContent = visibleRecCount;
+    bootstrap.Modal.getInstance(document.getElementById('addRecModal')).hide();
+}
+
+async function saveEditRec() {
+    const id = document.getElementById('editRecId').value;
+    const body = {
+        clause_text: document.getElementById('editRecClause').value.trim(),
+        justification: document.getElementById('editRecJustification').value.trim(),
+        source: document.getElementById('editRecSource').value,
+        priority: document.getElementById('editRecPriority').value,
+        existing_coverage: document.getElementById('editRecCoverage').value,
+        gap_id: document.getElementById('editRecGapId').value.trim(),
+    };
+    if (!body.clause_text) { alert('Clause text is required.'); return; }
+    const resp = await fetch(`/api/assessments/${assessmentId}/recommendations/${id}`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!resp.ok) { alert('Error updating recommendation: ' + (await resp.text())); return; }
+    const r = await resp.json();
+    const card = document.getElementById(`rec-card-${id}`);
+    card.querySelector('.rec-clause-text').textContent = `"${r.clause_text}"`;
+    card.querySelector('.rec-justification').textContent = r.justification;
+    const covBadge = card.querySelector('.badge.bg-light.text-dark');
+    if (covBadge) covBadge.textContent = `Coverage: ${r.existing_coverage || 'N/A'}`;
+    const recEditBtn = card.querySelector('button[title="Edit"]');
+    recEditBtn.dataset.id = r.id;
+    recEditBtn.dataset.clause = r.clause_text;
+    recEditBtn.dataset.justification = r.justification;
+    recEditBtn.dataset.source = r.source;
+    recEditBtn.dataset.priority = r.priority;
+    recEditBtn.dataset.coverage = r.existing_coverage || 'none';
+    recEditBtn.dataset.gapId = r.gap_id || '';
+    bootstrap.Modal.getInstance(document.getElementById('editRecModal')).hide();
+}
+async function retryAssessment(id) {
+    if (!confirm('Retry the pipeline for this assessment? It will re-run from the beginning.')) return;
+    const resp = await fetch(`/api/assessments/${id}/run`, { method: 'POST', credentials: 'same-origin' });
+    if (!resp.ok) { alert('Failed to start: ' + (await resp.text())); return; }
+    const vendorName = {{ meta.vendor_name | tojson }};
+    if (window.tprmTrackAssessment) window.tprmTrackAssessment(id, vendorName);
+    window.location.href = '/assessments';
+}
+
+// ── Send Mail ────────────────────────────────────────────────
+function enterSendMailMode() {
+    document.querySelectorAll('.gap-select-col').forEach(el => el.classList.remove('d-none'));
+    document.getElementById('send-mail-btn').classList.add('d-none');
+    document.getElementById('send-selected-btn').classList.remove('d-none');
+    document.getElementById('cancel-select-btn').classList.remove('d-none');
+    // Reset checkboxes
+    document.querySelectorAll('.gap-select-cb').forEach(cb => { cb.checked = false; });
+    const sa = document.getElementById('select-all-gaps');
+    if (sa) sa.checked = false;
+    updateSelectedCount();
+}
+
+function exitSendMailMode() {
+    document.querySelectorAll('.gap-select-col').forEach(el => el.classList.add('d-none'));
+    document.getElementById('send-mail-btn').classList.remove('d-none');
+    document.getElementById('send-selected-btn').classList.add('d-none');
+    document.getElementById('cancel-select-btn').classList.add('d-none');
+    document.querySelectorAll('.gap-select-cb').forEach(cb => { cb.checked = false; });
+    const sa = document.getElementById('select-all-gaps');
+    if (sa) sa.checked = false;
+    updateSelectedCount();
+}
+
+function toggleSelectAllGaps(checkbox) {
+    const visible = visibleGapRows();
+    visible.forEach(row => {
+        const cb = row.querySelector('.gap-select-cb');
+        if (cb) cb.checked = checkbox.checked;
+    });
+    updateSelectedCount();
+}
+
+function onGapCheckboxChange() {
+    const allCbs = document.querySelectorAll('.gap-select-cb');
+    const allChecked = Array.from(allCbs).every(cb => cb.checked);
+    const sa = document.getElementById('select-all-gaps');
+    if (sa) sa.checked = allChecked && allCbs.length > 0;
+    updateSelectedCount();
+}
+
+function visibleGapRows() {
+    return Array.from(document.querySelectorAll('#gaps-tbody tr')).filter(r => r.style.display !== 'none');
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.gap-select-cb:checked').length;
+    const el = document.getElementById('selected-gap-count');
+    if (el) el.textContent = count;
+    const btn = document.getElementById('send-selected-btn');
+    if (btn) btn.disabled = count === 0;
+}
+
+function openSendMailModal() {
+    const checkedBoxes = document.querySelectorAll('.gap-select-cb:checked');
+    if (checkedBoxes.length === 0) { alert('Please select at least one gap to send.'); return; }
+
+    // Build preview of selected gaps
+    const preview = document.getElementById('mail-gaps-preview');
+    preview.innerHTML = '';
+    checkedBoxes.forEach((cb, i) => {
+        const row = document.getElementById('gap-row-' + cb.value);
+        if (!row) return;
+        const cells = row.querySelectorAll('td');
+        // cells[0]=select, cells[1]=#, cells[2]=type, cells[3]=description, cells[4]=evidence, cells[5]=questionId, cells[6]=status
+        const type = cells[2] ? cells[2].textContent.trim() : '';
+        const desc = cells[3] ? cells[3].textContent.trim() : '';
+        const status = row.dataset.gapStatus || 'open';
+        const statusColor = status === 'closed' ? '#198754' : '#dc3545';
+        const div = document.createElement('div');
+        div.className = 'py-1 border-bottom d-flex align-items-start gap-2';
+        div.innerHTML = `<span class="badge bg-secondary" style="min-width:22px">${i + 1}</span>
+            <div>
+              <code class="small">${type}</code>
+              <span class="ms-2 text-muted small" style="color:${statusColor}!important;">${status}</span>
+              <div class="small mt-1">${desc}</div>
+            </div>`;
+        preview.appendChild(div);
+    });
+
+    document.getElementById('mail-gaps-count').textContent = checkedBoxes.length;
+    document.getElementById('mail-error-alert').classList.add('d-none');
+    document.getElementById('mail-error-alert').textContent = '';
+
+    // Validate recipient field on open
+    onRecipientInput();
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('sendMailModal')).show();
+}
+
+function onRecipientInput() {
+    const val = (document.getElementById('mail-recipient').value || '').trim();
+    const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+    const noSpocAlert = document.getElementById('mail-no-spoc-alert');
+    const sendBtn = document.getElementById('mail-send-btn');
+    if (!valid) {
+        noSpocAlert.classList.remove('d-none');
+        sendBtn.disabled = true;
+    } else {
+        noSpocAlert.classList.add('d-none');
+        sendBtn.disabled = false;
+    }
+}
+
+async function confirmSendMail() {
+    const checkedBoxes = document.querySelectorAll('.gap-select-cb:checked');
+    if (checkedBoxes.length === 0) return;
+    const gapIds = Array.from(checkedBoxes).map(cb => cb.value);
+    const subject = document.getElementById('mail-subject').value.trim();
+    const recipient = document.getElementById('mail-recipient').value.trim();
+    const spinner = document.getElementById('mail-send-spinner');
+    const icon = document.getElementById('mail-send-icon');
+    const sendBtn = document.getElementById('mail-send-btn');
+    const errorAlert = document.getElementById('mail-error-alert');
+
+    spinner.classList.remove('d-none');
+    icon.classList.add('d-none');
+    sendBtn.disabled = true;
+    errorAlert.classList.add('d-none');
+
+    try {
+        const resp = await fetch(`/api/assessments/${assessmentId}/send-gaps-email`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gap_ids: gapIds, subject: subject, recipient: recipient }),
+        });
+        if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            throw new Error(errData.detail || `HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        bootstrap.Modal.getInstance(document.getElementById('sendMailModal')).hide();
+        exitSendMailMode();
+        // Show success toast
+        const toastEl = document.createElement('div');
+        toastEl.className = 'toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-3';
+        toastEl.setAttribute('role', 'alert');
+        toastEl.style.zIndex = 9999;
+        toastEl.innerHTML = `<div class="d-flex">
+            <div class="toast-body"><i class="bi bi-check-circle-fill me-2"></i>Email sent to <strong>${data.recipient}</strong> (${data.gaps_count} gap${data.gaps_count > 1 ? 's' : ''}).</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>`;
+        document.body.appendChild(toastEl);
+        bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 5000 }).show();
+        toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    } catch (err) {
+        errorAlert.textContent = 'Failed to send email: ' + err.message;
+        errorAlert.classList.remove('d-none');
+        spinner.classList.add('d-none');
+        icon.classList.remove('d-none');
+        sendBtn.disabled = false;
+    }
+}
+
+// Initialize Bootstrap popovers (for pre-assessment score breakdown)
+document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+    new bootstrap.Popover(el, { sanitize: false });
+});
+</script>
+{% endblock %}

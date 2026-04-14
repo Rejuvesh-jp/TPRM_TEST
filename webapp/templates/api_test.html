@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Test Page</h1>
+    <button onclick="testUsersAPI()">Test Users API</button>
+    <button onclick="testAuditAPI()">Test Audit API</button>
+    <div id="output"></div>
+
+    <script>
+        async function testUsersAPI() {
+            try {
+                console.log('Testing users API...');
+                const response = await fetch('/api/users', { credentials: 'same-origin' });
+                console.log('Users API response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Users API data:', data);
+                    document.getElementById('output').innerHTML = `<h3>Users API Success</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    const errorText = await response.text();
+                    console.error('Users API error:', response.status, errorText);
+                    document.getElementById('output').innerHTML = `<h3>Users API Error</h3><p>Status: ${response.status}</p><p>${errorText}</p>`;
+                }
+            } catch (error) {
+                console.error('Users API exception:', error);
+                document.getElementById('output').innerHTML = `<h3>Users API Exception</h3><p>${error.message}</p>`;
+            }
+        }
+
+        async function testAuditAPI() {
+            try {
+                console.log('Testing audit API...');
+                const response = await fetch('/api/users/audit', { credentials: 'same-origin' });
+                console.log('Audit API response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Audit API data:', data);
+                    document.getElementById('output').innerHTML = `<h3>Audit API Success</h3><p>Found ${data.audit_log.length} activities</p><pre>${JSON.stringify(data.audit_log.slice(0, 3), null, 2)}</pre>`;
+                } else {
+                    const errorText = await response.text();
+                    console.error('Audit API error:', response.status, errorText);
+                    document.getElementById('output').innerHTML = `<h3>Audit API Error</h3><p>Status: ${response.status}</p><p>${errorText}</p>`;
+                }
+            } catch (error) {
+                console.error('Audit API exception:', error);
+                document.getElementById('output').innerHTML = `<h3>Audit API Exception</h3><p>${error.message}</p>`;
+            }
+        }
+
+        // Auto-test both APIs on page load
+        window.addEventListener('load', function() {
+            setTimeout(() => testUsersAPI(), 1000);
+            setTimeout(() => testAuditAPI(), 2000);
+        });
+    </script>
+</body>
+</html>

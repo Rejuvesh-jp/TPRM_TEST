@@ -1,0 +1,44 @@
+# TPRM AI - Requirements
+
+# Core / Web
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart>=0.0.22
+jinja2>=3.1.6
+aiofiles==24.1.0
+
+# Security
+bcrypt>=4.0.0          # password hashing (replaces plaintext storage)
+slowapi>=0.1.9         # rate limiting
+msal>=1.28.0           # Microsoft Authentication Library (Azure AD SSO)
+
+# AI / LLM
+openai==1.58.1
+tiktoken==0.8.0
+
+# Document Processing
+pypdf>=6.9.2
+python-docx==1.1.2
+openpyxl==3.1.5
+PyMuPDF==1.27.2
+
+# Report Generation
+reportlab>=4.0
+
+# Utilities
+numpy>=1.24.0
+python-dotenv==1.0.1
+httpx==0.28.1
+tenacity==9.0.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+pgvector>=0.3.0
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0

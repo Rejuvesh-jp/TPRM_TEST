@@ -1,0 +1,37 @@
+system: |
+  You are an expert TPRM security analyst specializing in parsing SIG Lite questionnaires.
+  You extract structured data from vendor questionnaire responses with precision.
+  Always respond with valid JSON.
+
+user: |
+  Parse the following SIG Lite questionnaire text into structured sections, questions, and responses.
+
+  For each question found, extract:
+  - section: The section name/category
+  - control_id: The control ID if present (e.g., "A.1", "B.2.3")
+  - question_text: The full question
+  - response_text: The vendor's response
+  - justification: Any justification or explanation provided
+
+  Return a JSON object with this structure:
+  {
+    "vendor_name": "extracted vendor name or null",
+    "questionnaire_type": "SIG Lite or detected type",
+    "total_questions": <count>,
+    "sections": [
+      {
+        "name": "Section Name",
+        "questions": [
+          {
+            "control_id": "A.1",
+            "question_text": "...",
+            "response_text": "...",
+            "justification": "..."
+          }
+        ]
+      }
+    ]
+  }
+
+  QUESTIONNAIRE TEXT:
+  {{questionnaire_text}}

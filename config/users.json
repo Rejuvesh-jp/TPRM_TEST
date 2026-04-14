@@ -1,0 +1,20 @@
+[
+  {
+    "email": "bhavanasiramachandra@titan.co.in",
+    "name": "BhavansaiRam",
+    "role": "admin",
+    "password_hash": "$2b$12$FJenxudErxC.4EirYCld1Ow4knrCxbBp60xmsM/TYO5hoVlupzNSK"
+  },
+  {
+    "email": "rejuveshj@titan.co.in",
+    "name": "Rejuvesh J",
+    "role": "admin",
+    "password_hash": "$2b$12$ng5m49TEYO/bYZwkv2RFueXFkvATeppys3BIe8ygnHCejvrwVlexC"
+  },
+  {
+    "email": "moneshg@titan.co.in",
+    "name": "Monesh",
+    "role": "analyst",
+    "password_hash": "$2b$12$vyO/J/FnyMl.prhxothtRe/45S39BC4BeIR5wyqoLm/07NNrgkP1q"
+  }
+]

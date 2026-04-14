@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% set active_page = "defaults" %}
+{% block title %}Default Documents{% endblock %}
+{% block page_title %}<i class="bi bi-database-fill-gear me-2"></i>Default Documents{% endblock %}
+
+{% block content %}
+<div class="row mb-4 fade-in">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb custom-breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                <li class="breadcrumb-item active">Default Documents</li>
+            </ol>
+        </nav>
+        <p class="text-muted mb-0">
+            Manage preloaded policies and contract clauses. Each upload creates a new version.
+            Switch between versions anytime &mdash; only the <strong>active</strong> version is used during assessments.
+        </p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Policies Section -->
+    <div class="col-lg-6">
+        <div class="glass-card fade-in" style="animation-delay:.1s">
+            <div class="glass-card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-shield-lock-fill me-2 text-warning"></i>Internal Policies</h5>
+                {% set active_policy = policies|selectattr('is_active')|list %}
+                {% if active_policy %}
+                <span class="badge bg-success">Active: {{ active_policy[0].version_label }}</span>
+                {% else %}
+                <span class="badge bg-secondary">No active version</span>
+                {% endif %}
+            </div>
+            <div class="glass-card-body">
+                <!-- Upload new version -->
+                <div class="upload-zone mb-3" onclick="this.querySelector('input').click()" style="min-height:80px">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <p class="mb-0">Upload new policy version</p>
+                    <small>PDF, DOCX, TXT &middot; Creates a new version automatically</small>
+                    <input type="file" class="d-none" id="policy-upload" accept=".pdf,.docx,.txt" multiple
+                           onchange="uploadDefaults('policies', this)">
+                </div>
+
+                <!-- Version list -->
+                <div id="policy-versions">
+                    {% set versions_seen = [] %}
+                    {% for doc in policies %}
+                    {% if doc.version not in versions_seen %}
+                    {% set _ = versions_seen.append(doc.version) %}
+                    {% set ver_docs = policies|selectattr('version', 'equalto', doc.version)|list %}
+                    <div class="mb-3 p-3" style="background:rgba(255,255,255,.03);border-radius:12px;border:1px solid {% if doc.is_active %}rgba(16,185,129,.4){% else %}rgba(255,255,255,.08){% endif %}">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div>
+                                <span class="badge {% if doc.is_active %}bg-success{% else %}bg-secondary{% endif %} me-2" style="font-size:.8rem">
+                                    {{ doc.version_label }}
+                                </span>
+                                {% if doc.is_active %}
+                                <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Active</span>
+                                {% endif %}
+                                <span class="text-muted small ms-2">{{ doc.uploaded_at[:10] }}</span>
+                            </div>
+                            <div class="d-flex gap-1">
+                                {% if not doc.is_active %}
+                                <button class="btn btn-sm btn-outline-success border-0" title="Set as active"
+                                        onclick="activateVersion('policies', {{ doc.version }})">
+                                    <i class="bi bi-check2-circle"></i>
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-sm btn-outline-danger border-0" title="Delete version"
+                                        onclick="deleteVersion('policies', {{ doc.version }})">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% for vd in ver_docs %}
+                        <div class="d-flex align-items-center py-1 px-2 mb-1"
+                             style="background:rgba(255,255,255,.04);border-radius:8px" data-doc-id="{{ vd.id }}">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger me-2"></i>
+                            <span class="text-white small flex-fill">{{ vd.filename }}</span>
+                            {% if vd.has_processed_data %}
+                            <span class="badge bg-success" style="font-size:.6rem">Embedded</span>
+                            {% else %}
+                            <span class="badge bg-warning" style="font-size:.6rem">Not Embedded</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if not policies %}
+                    <p class="text-muted text-center small mb-0">No default policies uploaded yet.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex gap-2 mt-3">
+                    <button class="action-btn action-btn-primary flex-fill justify-content-center"
+                            onclick="processDefaults('policies')" id="policy-process-btn"
+                            {% if not policies %}disabled{% endif %}>
+                        <i class="bi bi-cpu me-1"></i>Process & Embed Active
+                    </button>
+                    <button class="action-btn action-btn-danger justify-content-center"
+                            onclick="deleteAllDefaults('policies')" id="policy-delete-all-btn"
+                            {% if not policies %}disabled{% endif %}>
+                        <i class="bi bi-trash3 me-1"></i>Delete All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contract Clauses Section -->
+    <div class="col-lg-6">
+        <div class="glass-card fade-in" style="animation-delay:.2s">
+            <div class="glass-card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-file-earmark-ruled-fill me-2 text-success"></i>Contract Clauses</h5>
+                {% set active_clause = clauses|selectattr('is_active')|list %}
+                {% if active_clause %}
+                <span class="badge bg-success">Active: {{ active_clause[0].version_label }}</span>
+                {% else %}
+                <span class="badge bg-secondary">No active version</span>
+                {% endif %}
+            </div>
+            <div class="glass-card-body">
+                <!-- Upload new version -->
+                <div class="upload-zone mb-3" onclick="this.querySelector('input').click()" style="min-height:80px">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <p class="mb-0">Upload new clause version</p>
+                    <small>DOCX preferred &middot; PDF, TXT also accepted &middot; Creates a new version</small>
+                    <input type="file" class="d-none" id="clause-upload" accept=".docx,.pdf,.txt" multiple
+                           onchange="uploadDefaults('contract_clauses', this)">
+                </div>
+
+                <!-- Version list -->
+                <div id="clause-versions">
+                    {% set versions_seen = [] %}
+                    {% for doc in clauses %}
+                    {% if doc.version not in versions_seen %}
+                    {% set _ = versions_seen.append(doc.version) %}
+                    {% set ver_docs = clauses|selectattr('version', 'equalto', doc.version)|list %}
+                    <div class="mb-3 p-3" style="background:rgba(255,255,255,.03);border-radius:12px;border:1px solid {% if doc.is_active %}rgba(16,185,129,.4){% else %}rgba(255,255,255,.08){% endif %}">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div>
+                                <span class="badge {% if doc.is_active %}bg-success{% else %}bg-secondary{% endif %} me-2" style="font-size:.8rem">
+                                    {{ doc.version_label }}
+                                </span>
+                                {% if doc.is_active %}
+                                <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>Active</span>
+                                {% endif %}
+                                <span class="text-muted small ms-2">{{ doc.uploaded_at[:10] }}</span>
+                            </div>
+                            <div class="d-flex gap-1">
+                                {% if not doc.is_active %}
+                                <button class="btn btn-sm btn-outline-success border-0" title="Set as active"
+                                        onclick="activateVersion('contract_clauses', {{ doc.version }})">
+                                    <i class="bi bi-check2-circle"></i>
+                                </button>
+                                {% endif %}
+                                <button class="btn btn-sm btn-outline-danger border-0" title="Delete version"
+                                        onclick="deleteVersion('contract_clauses', {{ doc.version }})">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% for vd in ver_docs %}
+                        <div class="d-flex align-items-center py-1 px-2 mb-1"
+                             style="background:rgba(255,255,255,.04);border-radius:8px" data-doc-id="{{ vd.id }}">
+                            <i class="bi bi-file-earmark-word-fill text-info me-2"></i>
+                            <span class="text-white small flex-fill">{{ vd.filename }}</span>
+                            {% if vd.has_processed_data %}
+                            <span class="badge bg-success" style="font-size:.6rem">Embedded</span>
+                            {% else %}
+                            <span class="badge bg-warning" style="font-size:.6rem">Not Embedded</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% if not clauses %}
+                    <p class="text-muted text-center small mb-0">No default clauses uploaded yet.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex gap-2 mt-3">
+                    <button class="action-btn action-btn-primary flex-fill justify-content-center"
+                            onclick="processDefaults('contract_clauses')" id="clause-process-btn"
+                            {% if not clauses %}disabled{% endif %}>
+                        <i class="bi bi-cpu me-1"></i>Process & Embed Active
+                    </button>
+                    <button class="action-btn action-btn-danger justify-content-center"
+                            onclick="deleteAllDefaults('contract_clauses')" id="clause-delete-all-btn"
+                            {% if not clauses %}disabled{% endif %}>
+                        <i class="bi bi-trash3 me-1"></i>Delete All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pipeline Feature Flags have moved to /settings -->
+<div class="row g-4 mt-2">
+    <div class="col-12">
+        <div class="alert alert-secondary fade-in d-flex align-items-center gap-3 mb-0" style="animation-delay:.3s">
+            <i class="bi bi-sliders2 fs-4"></i>
+            <span>
+                Pipeline feature flags (LLM Quality Judge &amp; Version Cache) have moved to the
+                <a href="/settings" class="alert-link">Settings</a> page.
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- Status Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+    <div id="status-toast" class="toast align-items-center border-0" role="alert" style="background:#1e293b;border:1px solid rgba(255,255,255,.1)">
+        <div class="d-flex">
+            <div class="toast-body text-white" id="toast-message"></div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, type) {
+    const toast = document.getElementById('status-toast');
+    const body = document.getElementById('toast-message');
+    body.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle-fill text-success' : 'exclamation-triangle-fill text-warning'} me-2"></i>${escHtml(msg)}`;
+    new bootstrap.Toast(toast, {delay: 4000}).show();
+}
+
+async function uploadDefaults(category, input) {
+    if (!input.files.length) return;
+    const formData = new FormData();
+    for (const f of input.files) formData.append('files', f);
+
+    try {
+        const resp = await fetch(`/api/defaults/${category}`, {method: 'POST', body: formData, credentials: 'same-origin'});
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.detail || 'Upload failed'); }
+        const data = await resp.json();
+        showToast(`Uploaded ${data.count} file(s) as new version. Click "Process & Embed Active" to generate embeddings.`, 'success');
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+        showToast('Upload error: ' + err.message, 'error');
+    }
+    input.value = '';
+}
+
+async function processDefaults(category) {
+    const btnId = category === 'policies' ? 'policy-process-btn' : 'clause-process-btn';
+    const btn = document.getElementById(btnId);
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+
+    try {
+        const resp = await fetch(`/api/defaults/${category}/process`, {method: 'POST', credentials: 'same-origin'});
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.detail || 'Processing failed'); }
+        const data = await resp.json();
+        showToast(`Processed ${data.total_items} items for active version.`, 'success');
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+        showToast('Processing error: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+    }
+}
+
+async function activateVersion(category, version) {
+    try {
+        const resp = await fetch(`/api/defaults/${category}/activate/${version}`, {method: 'POST', credentials: 'same-origin'});
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.detail || 'Activation failed'); }
+        showToast(`Version v${version} is now active.`, 'success');
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast('Activation error: ' + err.message, 'error');
+    }
+}
+
+async function deleteVersion(category, version) {
+    if (!confirm(`Delete version v${version} and all its files?`)) return;
+    try {
+        const resp = await fetch(`/api/defaults/${category}?version=${version}`, {method: 'DELETE', credentials: 'same-origin'});
+        if (!resp.ok) throw new Error('Delete failed');
+        const data = await resp.json();
+        showToast(`Deleted version v${version} (${data.deleted} file(s)).`, 'success');
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast('Delete error: ' + err.message, 'error');
+    }
+}
+
+async function deleteAllDefaults(category) {
+    if (!confirm(`Delete ALL versions of default ${category.replace('_', ' ')}?`)) return;
+    try {
+        const resp = await fetch(`/api/defaults/${category}`, {method: 'DELETE', credentials: 'same-origin'});
+        if (!resp.ok) throw new Error('Delete failed');
+        const data = await resp.json();
+        showToast(`Deleted ${data.deleted} document(s).`, 'success');
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast('Delete error: ' + err.message, 'error');
+    }
+}
+</script>
+{% endblock %}

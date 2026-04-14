@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Session & API Test</title>
+    <link href="/static/vendor/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .debug-section {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+        }
+        .status-good { color: #28a745; }
+        .status-bad { color: #dc3545; }
+        pre {
+            background: #fff;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            max-height: 300px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Debug: Session & API Test</h1>
+        <button class="btn btn-primary" onclick="runAllTests()">Run All Tests</button>
+        <button class="btn btn-secondary" onclick="clearResults()">Clear Results</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function runAllTests() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>Running Diagnostics...</h3>';
+            
+            // Test 1: Cookie information
+            const cookieInfo = getCookieInfo();
+            results.innerHTML += createDebugSection('Cookie Information', cookieInfo.html, cookieInfo.status);
+            
+            // Test 2: Current session test
+            const sessionTest = await testCurrentSession();
+            results.innerHTML += createDebugSection('Current Session Test', sessionTest.html, sessionTest.status);
+            
+            // Test 3: Users API test
+            const usersTest = await testUsersAPI();
+            results.innerHTML += createDebugSection('Users API Test', usersTest.html, usersTest.status);
+            
+            // Test 4: Audit API test
+            const auditTest = await testAuditAPI();
+            results.innerHTML += createDebugSection('Audit API Test', auditTest.html, auditTest.status);
+            
+            // Test 5: Manual cookie test
+            const manualTest = await testManualCookie();
+            results.innerHTML += createDebugSection('Manual Cookie Test', manualTest.html, manualTest.status);
+        }
+
+        function getCookieInfo() {
+            const cookies = document.cookie;
+            const sessionToken = getCookie('session_token');
+            
+            let html = `<strong>All Cookies:</strong><br><pre>${cookies || '(no cookies found)'}</pre>`;
+            html += `<strong>Session Token:</strong><br><code>${sessionToken || '(not found)'}</code><br>`;
+            html += `<strong>Token Length:</strong> ${sessionToken ? sessionToken.length : 0} characters<br>`;
+            
+            return {
+                html: html,
+                status: sessionToken ? 'good' : 'bad'
+            };
+        }
+
+        async function testCurrentSession() {
+            try {
+                const response = await fetch('/api/health', { credentials: 'same-origin' });
+                const data = await response.json();
+                
+                return {
+                    html: `<strong>Health Check:</strong> ${response.status} ${response.statusText}<br><pre>${JSON.stringify(data, null, 2)}</pre>`,
+                    status: response.ok ? 'good' : 'bad'
+                };
+            } catch (error) {
+                return {
+                    html: `<strong>Health Check Failed:</strong><br><pre>${error.message}</pre>`,
+                    status: 'bad'
+                };
+            }
+        }
+
+        async function testUsersAPI() {
+            try {
+                console.log('Testing users API...');
+                const response = await fetch('/api/users', { 
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const responseText = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    data = responseText;
+                }
+                
+                let html = `<strong>Status:</strong> ${response.status} ${response.statusText}<br>`;
+                html += `<strong>Response:</strong><br><pre>${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}</pre>`;
+                
+                if (response.ok && data.users) {
+                    html += `<strong>Users Found:</strong> ${data.users.length}<br>`;
+                    data.users.forEach(user => {
+                        html += `- ${user.name} (${user.email}, ${user.role})<br>`;
+                    });
+                }
+                
+                return {
+                    html: html,
+                    status: response.ok ? 'good' : 'bad'
+                };
+            } catch (error) {
+                return {
+                    html: `<strong>API Test Failed:</strong><br><pre>${error.message}\n${error.stack}</pre>`,
+                    status: 'bad'
+                };
+            }
+        }
+
+        async function testAuditAPI() {
+            try {
+                const response = await fetch('/api/users/audit', { credentials: 'same-origin' });
+                const responseText = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    data = responseText;
+                }
+                
+                let html = `<strong>Status:</strong> ${response.status} ${response.statusText}<br>`;
+                html += `<strong>Response:</strong><br><pre>${typeof data === 'string' ? data : JSON.stringify(data, null, 2).substring(0, 1000)}...</pre>`;
+                
+                if (response.ok && data.audit_log) {
+                    html += `<strong>Activities Found:</strong> ${data.audit_log.length}<br>`;
+                }
+                
+                return {
+                    html: html,
+                    status: response.ok ? 'good' : 'bad'
+                };
+            } catch (error) {
+                return {
+                    html: `<strong>Audit API Test Failed:</strong><br><pre>${error.message}</pre>`,
+                    status: 'bad'
+                };
+            }
+        }
+
+        async function testManualCookie() {
+            const sessionToken = getCookie('session_token');
+            if (!sessionToken) {
+                return {
+                    html: '<strong>No session token available for manual test</strong>',
+                    status: 'bad'
+                };
+            }
+            
+            try {
+                const response = await fetch('/api/users', {
+                    headers: {
+                        'Cookie': `session_token=${sessionToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const responseText = await response.text();
+                
+                return {
+                    html: `<strong>Manual Cookie Test:</strong><br>Status: ${response.status}<br><pre>${responseText}</pre>`,
+                    status: response.ok ? 'good' : 'bad'
+                };
+            } catch (error) {
+                return {
+                    html: `<strong>Manual Cookie Test Failed:</strong><br><pre>${error.message}</pre>`,
+                    status: 'bad'
+                };
+            }
+        }
+
+        function createDebugSection(title, content, status) {
+            const statusClass = status === 'good' ? 'status-good' : 'status-bad';
+            const icon = status === 'good' ? '✅' : '❌';
+            return `
+                <div class="debug-section">
+                    <h4 class="${statusClass}">${icon} ${title}</h4>
+                    ${content}
+                </div>
+            `;
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', function() {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>

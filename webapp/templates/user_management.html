@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+{% set active_page = "user_management" %}
+{% block title %}User Management{% endblock %}
+{% block page_title %}<i class="bi bi-people-fill me-2"></i>User Management{% endblock %}
+
+{% block head %}
+<style>
+.user-card {
+    transition: all 0.2s ease;
+    border: 1px solid var(--border-color);
+}
+.user-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.role-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+.password-strength {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+.password-strength.weak { color: var(--bs-danger); }
+.password-strength.medium { color: var(--bs-warning); }
+.password-strength.strong { color: var(--bs-success); }
+.audit-log {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.action-buttons {
+    gap: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h4 class="mb-1">User Management</h4>
+                <p class="text-muted mb-0">Manage system users and their access permissions</p>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateUserModal()">
+                <i class="bi bi-person-plus-fill me-2"></i>Add New User
+            </button>
+        </div>
+
+        <!-- Users Grid -->
+        <div id="users-container" class="row g-3 mb-4">
+            <!-- Users will be loaded dynamically -->
+        </div>
+
+        <!-- Audit Log Section -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-activity me-2"></i>Recent Login Activity</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadAuditLog()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="audit-log-container" class="audit-log">
+                    <!-- Audit log will be loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createUserForm" onsubmit="createUser(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="createEmail" class="form-label">Email Address *</label>
+                        <input type="email" class="form-control" id="createEmail" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="createName" class="form-label">Full Name *</label>
+                        <input type="text" class="form-control" id="createName" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="createRole" class="form-label">Role *</label>
+                        <select class="form-select" id="createRole" required>
+                            <option value="">Select a role</option>
+                            <option value="admin">Administrator</option>
+                            <option value="analyst">Analyst</option>
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="createPassword" class="form-label">Password *</label>
+                        <input type="password" class="form-control" id="createPassword" required onkeyup="checkPasswordStrength('createPassword')">
+                        <div id="createPasswordStrength" class="password-strength"></div>
+                        <div class="invalid-feedback"></div>
+                        <small class="text-muted">
+                            Password must contain: 12+ characters, uppercase, lowercase, digit, and special character
+                        </small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Confirm Password *</label>
+                        <input type="password" class="form-control" id="confirmPassword" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editUserForm" onsubmit="updateUser(event)">
+                <input type="hidden" id="editUserEmail">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="editName">
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label">Role</label>
+                        <select class="form-select" id="editRole">
+                            <option value="admin">Administrator</option>
+                            <option value="analyst">Analyst</option>
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="editPassword" onkeyup="checkPasswordStrength('editPassword')">
+                        <div id="editPasswordStrength" class="password-strength"></div>
+                        <div class="invalid-feedback"></div>
+                        <small class="text-muted">Leave blank to keep current password</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let users = [];
+let auditLog = [];
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
+    loadAuditLog();
+});
+
+// Load all users
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/users', { 
+            credentials: 'same-origin',
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API returned ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        users = data.users || [];
+        renderUsers();
+    } catch (error) {
+        console.error('Error loading users:', error);
+        showToast('Failed to load users: ' + error.message, 'error');
+    }
+}
+
+// Render users grid
+function renderUsers() {
+    const container = document.getElementById('users-container');
+    
+    if (users.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-people display-1"></i>
+                    <p class="mt-3">No users found</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = users.map(user => {
+        const roleColor = {
+            admin: 'danger',
+            analyst: 'primary'
+        }[user.role] || 'secondary';
+        
+        const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A';
+        
+        return `
+            <div class="col-md-4">
+                <div class="card user-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between mb-3">
+                            <div class="flex-grow-1">
+                                <h6 class="card-title mb-1">${escapeHtml(user.name)}</h6>
+                                <small class="text-muted">${escapeHtml(user.email)}</small>
+                            </div>
+                            <span class="badge bg-${roleColor} role-badge">${user.role}</span>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="bi bi-calendar-plus me-1"></i>
+                                Created: ${createdDate}
+                            </small>
+                        </div>
+                        
+                        <div class="action-buttons d-flex">
+                            <button class="btn btn-sm btn-outline-primary flex-fill" onclick="openEditUserModal('${user.email}')">
+                                <i class="bi bi-pencil me-1"></i>Edit
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${user.email}')" 
+                                    ${user.email === '{{ user.email }}' ? 'disabled title="Cannot delete your own account"' : ''}>
+                                <i class="bi bi-trash me-1"></i>Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Open create user modal
+function openCreateUserModal() {
+    document.getElementById('createUserForm').reset();
+    clearValidationErrors('createUserForm');
+    new bootstrap.Modal(document.getElementById('createUserModal')).show();
+}
+
+// Open edit user modal
+function openEditUserModal(email) {
+    const user = users.find(u => u.email === email);
+    if (!user) return;
+    
+    document.getElementById('editUserEmail').value = user.email;
+    document.getElementById('editName').value = user.name;
+    document.getElementById('editRole').value = user.role;
+    document.getElementById('editPassword').value = '';
+    
+    clearValidationErrors('editUserForm');
+    new bootstrap.Modal(document.getElementById('editUserModal')).show();
+}
+
+// Create new user
+async function createUser(event) {
+    event.preventDefault();
+    
+    const formData = {
+        email: document.getElementById('createEmail').value.trim(),
+        name: document.getElementById('createName').value.trim(),
+        role: document.getElementById('createRole').value,
+        password: document.getElementById('createPassword').value
+    };
+    
+    // Validate password confirmation
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    if (formData.password !== confirmPassword) {
+        showValidationError('confirmPassword', 'Passwords do not match');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            handleApiError(result.detail, 'createUserForm');
+            return;
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+        showToast(result.message, 'success');
+        loadUsers();
+        
+    } catch (error) {
+        console.error('Error creating user:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+// Update user
+async function updateUser(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('editUserEmail').value;
+    const updateData = {
+        name: document.getElementById('editName').value.trim(),
+        role: document.getElementById('editRole').value
+    };
+    
+    const newPassword = document.getElementById('editPassword').value;
+    if (newPassword) {
+        updateData.password = newPassword;
+    }
+    
+    try {
+        const response = await fetch(`/api/users/${encodeURIComponent(email)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            handleApiError(result.detail, 'editUserForm');
+            return;
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+        showToast(result.message, 'success');
+        loadUsers();
+        
+    } catch (error) {
+        console.error('Error updating user:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+// Delete user
+async function deleteUser(email) {
+    if (!confirm(`Are you sure you want to delete user: ${email}?\n\nThis action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/users/${encodeURIComponent(email)}`, {
+            method: 'DELETE',
+            credentials: 'same-origin'
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Failed to delete user');
+        }
+        
+        showToast(result.message, 'success');
+        loadUsers();
+        loadAuditLog(); // Refresh audit log
+        
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        showToast(error.message, 'error');
+    }
+}
+
+// Load audit log
+async function loadAuditLog() {
+    try {
+        const response = await fetch('/api/users/audit', { 
+            credentials: 'same-origin',
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API returned ${response.status}: ${errorText}`);
+        }
+        
+        const data = await response.json();
+        auditLog = data.audit_log || [];
+        renderAuditLog(); 
+    } catch (error) {
+        console.error('Error loading audit log:', error);
+        document.getElementById('audit-log-container').innerHTML = `
+            <div class="text-muted text-center py-3">
+                <i class="bi bi-exclamation-triangle"></i>
+                Failed to load audit log
+            </div>
+        `;
+    }
+}
+
+// Render audit log
+function renderAuditLog() {
+    const container = document.getElementById('audit-log-container');
+    
+    if (auditLog.length === 0) {
+        container.innerHTML = `
+            <div class="text-muted text-center py-3">
+                <i class="bi bi-clock-history"></i>
+                No login activity found
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = auditLog.map(entry => {
+        const date = new Date(entry.timestamp).toLocaleString();
+        const actionColor = {
+            'LOGIN_SUCCESS': 'success',
+            'LOGIN_FAILED': 'danger',
+            'CREATE_USER': 'primary',
+            'UPDATE_USER': 'warning', 
+            'DELETE_USER': 'danger'
+        }[entry.action] || 'secondary';
+        
+        const actionText = {
+            'LOGIN_SUCCESS': 'Login Success',
+            'LOGIN_FAILED': 'Login Failed',
+            'CREATE_USER': 'User Created',
+            'UPDATE_USER': 'User Updated',
+            'DELETE_USER': 'User Deleted'
+        }[entry.action] || entry.action;
+        
+        const icon = {
+            'LOGIN_SUCCESS': 'bi-check-circle',
+            'LOGIN_FAILED': 'bi-x-circle',
+            'CREATE_USER': 'bi-person-plus',
+            'UPDATE_USER': 'bi-pencil',
+            'DELETE_USER': 'bi-person-x'
+        }[entry.action] || 'bi-activity';
+        
+        return `
+            <div class="d-flex align-items-center py-2 border-bottom">
+                <div class="flex-shrink-0 me-3">
+                    <span class="badge bg-${actionColor}">
+                        <i class="${icon} me-1"></i>${actionText}
+                    </span>
+                </div>
+                <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <strong>${escapeHtml(entry.name)}</strong>
+                            <small class="text-muted">・${escapeHtml(entry.email)}</small>
+                            ${entry.ip_address ? `<small class="text-muted">・${escapeHtml(entry.ip_address)}</small>` : ''}
+                        </div>
+                        <small class="text-muted">${date}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Password strength checker
+function checkPasswordStrength(fieldId) {
+    const password = document.getElementById(fieldId).value;
+    const strengthDiv = document.getElementById(fieldId + 'Strength');
+    
+    if (!password) {
+        strengthDiv.textContent = '';
+        return;
+    }
+    
+    let score = 0;
+    let feedback = [];
+    
+    if (password.length >= 12) score++; else feedback.push('12+ characters');
+    if (/[A-Z]/.test(password)) score++; else feedback.push('uppercase');
+    if (/[a-z]/.test(password)) score++; else feedback.push('lowercase');
+    if (/\d/.test(password)) score++; else feedback.push('digit');
+    if (/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) score++; else feedback.push('special char');
+    
+    let strength, className;
+    if (score < 3) {
+        strength = 'Weak';
+        className = 'weak';
+    } else if (score < 5) {
+        strength = 'Medium';
+        className = 'medium';
+    } else {
+        strength = 'Strong';
+        className = 'strong';
+    }
+    
+    strengthDiv.textContent = `Password strength: ${strength}${feedback.length ? ' (missing: ' + feedback.join(', ') + ')' : ''}`;
+    strengthDiv.className = `password-strength ${className}`;
+}
+
+// Utility functions
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(message, type = 'info') {
+    const toastEl = document.createElement('div');
+    const bgClass = type === 'success' ? 'text-bg-success' : type === 'warning' ? 'text-bg-warning' : type === 'error' ? 'text-bg-danger' : 'text-bg-info';
+    toastEl.className = `toast align-items-center ${bgClass} border-0 position-fixed bottom-0 end-0 m-3`;
+    toastEl.setAttribute('role', 'alert');
+    toastEl.style.zIndex = 9999;
+    toastEl.innerHTML = `<div class="d-flex"><div class="toast-body">${escapeHtml(message)}</div><button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+    document.body.appendChild(toastEl);
+    bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 5000 }).show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
+function clearValidationErrors(formId) {
+    const form = document.getElementById(formId);
+    form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    form.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
+}
+
+function showValidationError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    field.classList.add('is-invalid');
+    const feedback = field.nextElementSibling;
+    if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.textContent = message;
+    }
+}
+
+// Handle API errors — works for both FastAPI 422 arrays and plain HTTPException string detail
+function handleApiError(detail, formId) {
+    if (Array.isArray(detail)) {
+        // FastAPI Pydantic 422: [{loc:[...], msg:'...', type:'...'}]
+        const fieldMap = {
+            email: 'createEmail',
+            name: 'createName',
+            role: 'createRole',
+            password: formId === 'createUserForm' ? 'createPassword' : 'editPassword',
+        };
+        let shown = false;
+        detail.forEach(err => {
+            const field = err.loc ? err.loc[err.loc.length - 1] : null;
+            const domId = formId ? fieldMap[field] : null;
+            if (domId) {
+                showValidationError(domId, err.msg);
+                shown = true;
+            }
+        });
+        const messages = detail.map(e => e.msg).join(' | ');
+        showToast(messages || 'Validation failed. Please check your input.', 'error');
+    } else {
+        showToast(detail || 'An error occurred. Please try again.', 'error');
+    }
+}
+
+function handleValidationErrors(detail) {
+    handleApiError(detail, null);
+}
+</script>
+{% endblock %}

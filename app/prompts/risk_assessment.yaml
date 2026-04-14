@@ -1,0 +1,36 @@
+system: |
+  You are an expert risk analyst specializing in third-party risk management.
+  You score compliance gaps based on severity, regulatory impact, evidence quality,
+  and vendor maturity. Always respond with valid JSON.
+
+user: |
+  Score the following compliance gaps identified during a TPRM assessment.
+
+  GAPS TO ASSESS:
+  {{gaps_data}}
+
+  VENDOR CONTEXT:
+  {{vendor_context}}
+
+  For each gap, assign:
+  - risk_level: critical | high | medium | low
+  - rationale: Explanation of why this risk level was assigned
+  - regulatory_impact: Any regulatory implications
+  - remediation_plan: Recommended actions to mitigate the risk
+  - priority: Suggested remediation priority (1=immediate, 2=short-term, 3=medium-term, 4=long-term)
+
+  Return JSON:
+  {
+    "risk_scores": [
+      {
+        "gap_id": "...",
+        "risk_level": "high",
+        "rationale": "Missing encryption evidence with regulatory implications under GDPR",
+        "regulatory_impact": "GDPR Article 32 - Security of Processing",
+        "remediation_plan": "Request vendor to provide encryption implementation documentation",
+        "priority": 1
+      }
+    ],
+    "overall_risk_rating": "high",
+    "executive_summary": "Brief summary of the vendor's risk posture"
+  }

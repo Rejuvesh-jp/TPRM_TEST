@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────────────────────────
+# TPRM AI — Production Docker Compose
+# Usage:
+#   1. Copy .env.example → .env and fill in real values
+#   2. docker compose -f docker-compose.prod.yml up -d
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL + pgvector ──────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: tprm-db
+    restart: always
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"   # only accessible from localhost
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db:/docker-entrypoint-initdb.d  # runs 01-init.sql on first start
+    networks:
+      - tprm-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── TPRM Application ───────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tprm-app
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db       # override to use docker service name, not 127.0.0.1
+      TPRM_HOST:    0.0.0.0
+      TPRM_DEBUG:   "false"
+    ports:
+      - "0.0.0.0:${TPRM_PORT:-8085}:8085"
+    volumes:
+      - ./data:/app/data                 # persisted assessment data
+      - ./config:/app/config             # users.json / login_activity.json (seed only)
+      - assessments_data:/app/assessments
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tprm-net
+
+networks:
+  tprm-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  assessments_data:

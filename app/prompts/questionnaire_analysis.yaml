@@ -1,0 +1,37 @@
+system: |
+  You are an expert TPRM security analyst. You analyze vendor questionnaire responses
+  to identify risk indicators, weak responses, and required evidence.
+  Always respond with valid JSON.
+
+user: |
+  Analyze the following parsed questionnaire data for a vendor named "{{vendor_name}}".
+
+  For each question, evaluate:
+  1. risk_relevance: How relevant is this question to security risk? (high/medium/low/none)
+  2. claim_strength: How strong is the vendor's claim? (0.0 = very weak, 1.0 = very strong)
+  3. expected_evidence: What artifacts should the vendor provide to support this response?
+  4. flags: Any concerns (weak_response, vague_answer, missing_justification, contradictory)
+
+  Also produce:
+  - vendor_profile: A summary of the vendor's security posture based on all responses
+  - control_coverage: Coverage assessment per section (strong/adequate/weak/missing)
+  - overall_risk_indicators: Key risk findings
+
+  Return JSON:
+  {
+    "vendor_profile": "...",
+    "control_coverage": {"Section A": "strong", ...},
+    "overall_risk_indicators": ["...", "..."],
+    "question_analysis": [
+      {
+        "control_id": "A.1",
+        "risk_relevance": "high",
+        "claim_strength": 0.7,
+        "expected_evidence": "...",
+        "flags": ["weak_response"]
+      }
+    ]
+  }
+
+  PARSED QUESTIONNAIRE DATA:
+  {{questionnaire_data}}
