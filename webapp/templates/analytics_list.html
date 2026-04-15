@@ -11,7 +11,18 @@
 </div>
 
 {% if assessments %}
-<div class="row g-4">
+<div class="row mb-3">
+    <div class="col-12 col-sm-6 col-md-4">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control border-start-0" id="analytics-search" placeholder="Search vendor..." oninput="filterAnalyticsCards()">
+        </div>
+    </div>
+    <div class="col-auto ms-auto">
+        <small class="text-muted" id="analytics-count">{{ assessments|length }} assessment{{ 's' if assessments|length != 1 else '' }}</small>
+    </div>
+</div>
+<div class="row g-4" id="analytics-cards-row">
     {% for a in assessments %}
     <div class="col-xl-4 col-md-6 fade-in" style="animation-delay:{{ loop.index0 * 0.05 }}s">
         <a href="/assessments/{{ a.id }}/analytics" class="text-decoration-none">
@@ -66,4 +77,22 @@
     </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterAnalyticsCards() {
+    const query = (document.getElementById('analytics-search')?.value || '').trim().toLowerCase();
+    const cards = document.querySelectorAll('#analytics-cards-row > div');
+    let shown = 0;
+    cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        const match = !query || text.includes(query);
+        card.style.display = match ? '' : 'none';
+        if (match) shown++;
+    });
+    const countEl = document.getElementById('analytics-count');
+    if (countEl) countEl.textContent = shown + ' assessment' + (shown !== 1 ? 's' : '');
+}
+</script>
 {% endblock %}

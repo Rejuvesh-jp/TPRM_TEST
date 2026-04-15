@@ -225,6 +225,11 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
     # ══════════════════════════════════════════════════════════════════════════
     # The LLM evaluates evidence quality for questions the vendor DID answer.
     # It finds: unsupported_claim, policy_violation, missing_artifact gaps.
+    # ══════════════════════════════════════════════════════════════════════════
+    # PHASE 2: LLM gap analysis for ANSWERED questions only
+    # ══════════════════════════════════════════════════════════════════════════
+    # The LLM evaluates evidence quality for questions the vendor DID answer.
+    # It finds: unsupported_claim, policy_violation, missing_artifact gaps.
     #
     # SECTION BATCHING: Instead of sending ALL questions in one giant prompt
     # (which causes the LLM to skip/rush later sections), we split questions
@@ -354,6 +359,7 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
         batch_result = llm_fn(gap_prompt, system_prompt=gap_system)
         batch_gaps = batch_result.get("gaps", [])
         logger.info("[BATCH %d/%d] Raw gaps returned: %d", _batch_idx, len(_batches), len(batch_gaps))
+
         all_raw_gaps.extend(batch_gaps)
 
     if _ref_llm_gaps:

@@ -237,40 +237,32 @@ def generate_word(report: dict, vendor_name: str) -> io.BytesIO:
 
     _add_section_heading(f"Identified Gaps ({len(open_gaps)})")
 
-    if open_gaps:
+    if not open_gaps:
+        p = doc.add_paragraph()
+        run = p.add_run("No open gaps identified.")
+        run.font.color.rgb = GRAY
+    else:
         gap_headers = ["#", "Gap Type", "Description", "Evidence"]
         gap_table = doc.add_table(rows=1 + len(open_gaps), cols=4, style="Table Grid")
         gap_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         gap_table.autofit = False
         _set_table_borders(gap_table)
-
-        # Header row
         for ci, h in enumerate(gap_headers):
             gap_table.rows[0].cells[ci].text = h
         _style_header_row(gap_table.rows[0], 4)
-
-        # Column widths: #=1cm, Type=3.5cm, Desc=9cm, Evidence=3.5cm
         col_widths = [Cm(1), Cm(3.5), Cm(9), Cm(3.5)]
         for row in gap_table.rows:
             for ci, w in enumerate(col_widths):
                 row.cells[ci].width = w
-
-        # Data rows
         for i, g in enumerate(open_gaps, 1):
             row = gap_table.rows[i]
             _add_body_cell(row.cells[0], str(i), align=WD_ALIGN_PARAGRAPH.CENTER)
             _add_body_cell(row.cells[1], g.get("gap_type", ""))
             _add_body_cell(row.cells[2], g.get("description", ""))
             _add_body_cell(row.cells[3], g.get("evidence_assessment", "—"))
-
-            # Alternate row shading
             if i % 2 == 0:
                 for ci in range(4):
                     _set_cell_shading(row.cells[ci], "F8FAFC")
-    else:
-        p = doc.add_paragraph()
-        run = p.add_run("No open gaps identified.")
-        run.font.color.rgb = GRAY
 
     doc.add_page_break()
 
@@ -582,7 +574,6 @@ def generate_pdf(report: dict, vendor_name: str) -> io.BytesIO:
     # ── Section 1: Gaps (only open) ──
     elements.append(Paragraph(f"Identified Gaps ({len(open_gaps)})", styles["SectionHead"]))
     elements.append(HRFlowable(width="100%", thickness=1, color=INDIGO, spaceAfter=6))
-
     if open_gaps:
         col_widths = [page_width * w for w in [0.05, 0.17, 0.48, 0.30]]
         gap_data = [

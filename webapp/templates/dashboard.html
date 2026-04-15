@@ -170,6 +170,13 @@
                 {% if assessments|length > 0 %}
                 <div class="row g-2 align-items-center">
                     <div class="col-12 col-sm-auto">
+                        <label class="visually-hidden" for="f-search">Search</label>
+                        <div class="input-group input-group-sm" style="min-width:220px">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control border-start-0 dash-filter" id="f-search" placeholder="Search vendor, division..." oninput="applyDashFilters()">
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-auto">
                         <label class="visually-hidden" for="f-division">Division</label>
                         <select class="form-select form-select-sm dash-filter" id="f-division" onchange="applyDashFilters()" style="min-width:165px">
                             <option value=""><i class="bi bi-building"></i> All Divisions</option>
@@ -486,13 +493,16 @@ async function retryAssessment(id) {
         const div  = (document.getElementById('f-division')?.value  || '').trim();
         const eng  = (document.getElementById('f-engagement')?.value || '').trim().toLowerCase();
         const risk = (document.getElementById('f-risk')?.value       || '').trim().toLowerCase();
+        const search = (document.getElementById('f-search')?.value   || '').trim().toLowerCase();
 
         let shown = 0;
         rows.forEach(row => {
-            const match =
+            const matchFilters =
                 (!div  || row.dataset.division  === div)  &&
                 (!eng  || (row.dataset.engagement  || '').toLowerCase() === eng)  &&
                 (!risk || (row.dataset.risk         || '').toLowerCase() === risk);
+            const matchSearch = !search || row.textContent.toLowerCase().includes(search);
+            const match = matchFilters && matchSearch;
             row.style.display = match ? '' : 'none';
             if (match) shown++;
         });
@@ -507,7 +517,7 @@ async function retryAssessment(id) {
 
         // Clear button visibility
         const clearBtn = document.getElementById('clear-filters-btn');
-        if (clearBtn) clearBtn.style.display = (div || eng || risk) ? '' : 'none';
+        if (clearBtn) clearBtn.style.display = (div || eng || risk || search) ? '' : 'none';
 
         // No-results message
         const noRes = document.getElementById('dash-no-results');
@@ -515,7 +525,7 @@ async function retryAssessment(id) {
     };
 
     window.clearDashFilters = function () {
-        ['f-division', 'f-engagement', 'f-risk'].forEach(id => {
+        ['f-division', 'f-engagement', 'f-risk', 'f-search'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });

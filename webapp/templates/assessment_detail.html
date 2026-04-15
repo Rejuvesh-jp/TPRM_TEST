@@ -460,12 +460,12 @@ async function setRiskRating(rating) {
                             <tr>
                                 <th width="3%" class="d-none gap-select-col text-center"><input type="checkbox" id="select-all-gaps" onchange="toggleSelectAllGaps(this)" title="Select all"></th>
                                 <th width="4%">#</th>
-                                <th width="13%">Type</th>
+                                <th width="10%">Type</th>
                                 <th>Description</th>
-                                <th width="13%">Evidence</th>
-                                <th width="11%" class="text-center">Question ID</th>
-                                <th width="9%" class="text-center">Status</th>
-                                <th width="10%" class="text-center">Actions</th>
+                                <th width="12%">Evidence</th>
+                                <th width="8%" class="text-center">Question ID</th>
+                                <th width="8%" class="text-center">Status</th>
+                                <th width="9%" class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="gaps-tbody">
@@ -1205,16 +1205,22 @@ function filterGaps(status) {
     document.querySelectorAll('#gap-filter-group button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === status);
     });
+    _applyGapFilters();
+}
+
+function _applyGapFilters() {
+    const statusFilter = document.querySelector('#gap-filter-group button.active')?.dataset?.filter || 'all';
     const rows = document.getElementById('gaps-tbody').querySelectorAll('tr');
     let visible = 0;
     rows.forEach(tr => {
         const rowStatus = tr.dataset.gapStatus || 'open';
-        const show = status === 'all' || rowStatus === status;
-        tr.style.display = show ? '' : 'none';
-        if (show) visible++;
+        const statusOk = statusFilter === 'all' || rowStatus === statusFilter;
+        tr.style.display = statusOk ? '' : 'none';
+        if (statusOk) visible++;
     });
-    document.getElementById('gap-count-badge').textContent = `(${visible})`;
+    document.getElementById('gap-count-badge').textContent = '(' + visible + ')';
 }
+
 
 async function closeGap(gapId) {
     // Only allow closing gaps (no reopening)
