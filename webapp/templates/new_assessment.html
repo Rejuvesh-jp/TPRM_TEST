@@ -121,7 +121,7 @@
 
             <div class="glass-card mb-3 fade-in" style="animation-delay:.25s">
                 <div class="glass-card-header">
-                    <h5><i class="bi bi-clipboard2-check-fill me-2 text-purple" style="color:#8b5cf6"></i>Pre-Business Assessment Questionnaire</h5>
+                    <h5><i class="bi bi-clipboard2-check-fill me-2" style="color:#00b897"></i>Pre-Business Assessment Questionnaire</h5>
                 </div>
                 <div class="glass-card-body">
                     <div class="upload-zone" onclick="this.querySelector('input').click()">
@@ -160,7 +160,7 @@
                     {% if default_policies %}
                     {% set active_pol = default_policies|selectattr('is_active')|list %}
                     {% if active_pol %}
-                    <div class="alert alert-info py-2 px-3 mb-3" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:10px;font-size:.85rem">
+                    <div class="alert alert-info py-2 px-3 mb-3" style="background:rgba(0,184,151,.1);border:1px solid rgba(0,184,151,.25);border-radius:10px;font-size:.85rem">
                         <i class="bi bi-check-circle-fill me-1 text-success"></i>
                         <strong>{{ active_pol|length }} default polic{{ 'y' if active_pol|length == 1 else 'ies' }}</strong> preloaded
                         <span class="badge bg-success ms-1" style="font-size:.7rem">{{ active_pol[0].version_label }}</span>
@@ -187,7 +187,7 @@
                     {% if default_clauses %}
                     {% set active_cl = default_clauses|selectattr('is_active')|list %}
                     {% if active_cl %}
-                    <div class="alert alert-info py-2 px-3 mb-3" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:10px;font-size:.85rem">
+                    <div class="alert alert-info py-2 px-3 mb-3" style="background:rgba(0,184,151,.1);border:1px solid rgba(0,184,151,.25);border-radius:10px;font-size:.85rem">
                         <i class="bi bi-check-circle-fill me-1 text-success"></i>
                         <strong>{{ active_cl|length }} default clause file{{ 's' if active_cl|length != 1 }}</strong> preloaded
                         <span class="badge bg-success ms-1" style="font-size:.7rem">{{ active_cl[0].version_label }}</span>
@@ -320,10 +320,24 @@ document.addEventListener('DOMContentLoaded', function() {
             // Step 1: Create assessment & upload files
             const createResp = await fetch('/api/assessments', { method: 'POST', body: formData, credentials: 'same-origin' });
             if (!createResp.ok) {
-                const err = await createResp.json();
-                throw new Error(err.detail || 'Failed to create assessment');
+                let errMsg = 'Failed to create assessment';
+                try {
+                    const contentType = createResp.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const err = await createResp.json();
+                        errMsg = err.detail || errMsg;
+                    } else {
+                        errMsg = `Server error (${createResp.status}). The uploaded files may be too large or the server is temporarily unavailable.`;
+                    }
+                } catch (_) { /* response body not parseable */ }
+                throw new Error(errMsg);
             }
-            const createData = await createResp.json();
+            let createData;
+            try {
+                createData = await createResp.json();
+            } catch (_) {
+                throw new Error('Server returned an invalid response. Please try again.');
+            }
             const assessmentId = createData.id;
             const vendorName   = createData.vendor_name || formData.get('vendor_name') || 'Assessment';
 

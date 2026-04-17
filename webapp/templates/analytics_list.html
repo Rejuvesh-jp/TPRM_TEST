@@ -3,59 +3,178 @@
 {% block title %}Analytics{% endblock %}
 {% block page_title %}<i class="bi bi-bar-chart-line-fill me-2"></i>Assessment Analytics{% endblock %}
 
+{% block head %}
+<style>
+/* ── Card color accents (cycle through 6 colors) ── */
+.acard { border-radius: 16px; overflow: hidden; transition: transform .25s, box-shadow .25s; border: 1px solid var(--border-color); background: var(--bg-card); position: relative; }
+.acard:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.acard-stripe { position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+.acard-c0 .acard-stripe { background: linear-gradient(90deg, #00b897, #00d4aa); }
+.acard-c1 .acard-stripe { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.acard-c2 .acard-stripe { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+.acard-c3 .acard-stripe { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.acard-c4 .acard-stripe { background: linear-gradient(90deg, #ef4444, #f87171); }
+.acard-c5 .acard-stripe { background: linear-gradient(90deg, #ec4899, #f472b6); }
+
+.acard-c0:hover { box-shadow: 0 8px 28px rgba(0,184,151,.18); }
+.acard-c1:hover { box-shadow: 0 8px 28px rgba(59,130,246,.18); }
+.acard-c2:hover { box-shadow: 0 8px 28px rgba(139,92,246,.18); }
+.acard-c3:hover { box-shadow: 0 8px 28px rgba(245,158,11,.18); }
+.acard-c4:hover { box-shadow: 0 8px 28px rgba(239,68,68,.18); }
+.acard-c5:hover { box-shadow: 0 8px 28px rgba(236,72,153,.18); }
+
+/* Avatar colors per card */
+.acard-c0 .acard-avatar { background: rgba(0,184,151,.12); color: #00b897; border: 1px solid rgba(0,184,151,.18); }
+.acard-c1 .acard-avatar { background: rgba(59,130,246,.12); color: #3b82f6; border: 1px solid rgba(59,130,246,.18); }
+.acard-c2 .acard-avatar { background: rgba(139,92,246,.12); color: #8b5cf6; border: 1px solid rgba(139,92,246,.18); }
+.acard-c3 .acard-avatar { background: rgba(245,158,11,.12); color: #f59e0b; border: 1px solid rgba(245,158,11,.18); }
+.acard-c4 .acard-avatar { background: rgba(239,68,68,.12); color: #ef4444; border: 1px solid rgba(239,68,68,.18); }
+.acard-c5 .acard-avatar { background: rgba(236,72,153,.12); color: #ec4899; border: 1px solid rgba(236,72,153,.18); }
+
+.acard-avatar { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.15rem; flex-shrink: 0; }
+.acard-body { padding: 1.5rem 1.35rem 1.25rem; }
+.acard-vendor { font-size: 1.02rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acard-meta { font-size: .72rem; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.acard-meta .dot { opacity: .4; }
+
+/* Version badge */
+.acard-version { font-size: .68rem; font-weight: 700; padding: .15rem .45rem; border-radius: 5px; background: var(--bg-subtle); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+/* Risk pill in card */
+.acard-risk { font-size: .66rem; font-weight: 700; padding: .18rem .5rem; border-radius: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.acard-risk-critical { background: rgba(239,68,68,.12); color: #ef4444; }
+.acard-risk-high     { background: rgba(249,115,22,.12); color: #f97316; }
+.acard-risk-medium   { background: rgba(245,158,11,.12); color: #f59e0b; }
+.acard-risk-low      { background: rgba(16,185,129,.12); color: #10b981; }
+
+/* KPI row in card */
+.acard-kpis { display: flex; gap: .5rem; margin-top: 1rem; }
+.acard-kpi { flex: 1; text-align: center; padding: .55rem .25rem; border-radius: 10px; background: var(--bg-subtle); border: 1px solid var(--border-light); }
+.acard-kpi-val { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.acard-kpi-lbl { font-size: .62rem; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+
+/* Arrow icon */
+.acard-arrow { color: var(--text-dim); font-size: 1.2rem; transition: color .2s, transform .2s; }
+.acard:hover .acard-arrow { color: var(--teal); transform: translateX(3px); }
+
+/* Dark theme overrides */
+[data-theme="dark"] .acard { background: linear-gradient(145deg, #1c1c22, #18181c); border-color: #2a2a32; }
+[data-theme="dark"] .acard-kpi { background: #1a1a20; border-color: #222228; }
+[data-theme="dark"] .acard-version { background: #1e1e24; border-color: #2a2a32; color: var(--text-secondary); }
+
+/* Filter bar */
+.analytics-filters { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.analytics-filters .form-select, .analytics-filters .form-control { font-size: .84rem; max-width: 200px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="row mb-4">
+<div class="row mb-3">
     <div class="col-12">
         <p class="text-muted mb-0">Select a completed assessment to view its full analytics dashboard.</p>
     </div>
 </div>
 
 {% if assessments %}
-<div class="row mb-3">
-    <div class="col-12 col-sm-6 col-md-4">
-        <div class="input-group input-group-sm">
-            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
-            <input type="text" class="form-control border-start-0" id="analytics-search" placeholder="Search vendor..." oninput="filterAnalyticsCards()">
+<!-- Filters Row -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="analytics-filters">
+            <!-- Search -->
+            <div class="input-group input-group-sm" style="max-width:220px">
+                <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control border-start-0" id="analytics-search" placeholder="Search vendor..." oninput="filterAnalyticsCards()">
+            </div>
+
+            <!-- Date filter -->
+            <select class="form-select form-select-sm" id="filter-date" onchange="filterAnalyticsCards()">
+                <option value="">All Dates</option>
+                <option value="7">Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
+                <option value="90">Last 90 Days</option>
+            </select>
+
+            <!-- Engagement filter -->
+            <select class="form-select form-select-sm" id="filter-engagement" onchange="filterAnalyticsCards()">
+                <option value="">All Engagements</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
+
+            <!-- Sort -->
+            <select class="form-select form-select-sm" id="sort-by" onchange="sortAnalyticsCards()">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name-az">Name A–Z</option>
+                <option value="name-za">Name Z–A</option>
+                <option value="gaps-desc">Most Gaps</option>
+            </select>
+
+            <span class="text-muted small ms-auto" id="analytics-count">{{ assessments|length }} assessment{{ 's' if assessments|length != 1 else '' }}</span>
         </div>
     </div>
-    <div class="col-auto ms-auto">
-        <small class="text-muted" id="analytics-count">{{ assessments|length }} assessment{{ 's' if assessments|length != 1 else '' }}</small>
-    </div>
 </div>
+
+<!-- Cards Grid -->
 <div class="row g-4" id="analytics-cards-row">
+    {% set color_classes = ['acard-c0','acard-c1','acard-c2','acard-c3','acard-c4','acard-c5'] %}
     {% for a in assessments %}
-    <div class="col-xl-4 col-md-6 fade-in" style="animation-delay:{{ loop.index0 * 0.05 }}s">
-        <a href="/assessments/{{ a.id }}/analytics" class="text-decoration-none">
-            <div class="glass-card h-100 analytics-card">
-                <div class="glass-card-body">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="vendor-avatar me-3" style="width:44px;height:44px;font-size:1.2rem;flex-shrink:0">
+    {% set risk = (a.summary.overall_risk if a.summary and a.summary.overall_risk else a.risk_rating)|default('medium')|lower %}
+    <div class="col-xl-4 col-md-6 fade-in analytics-card-col"
+         style="animation-delay:{{ loop.index0 * 0.04 }}s"
+         data-vendor="{{ a.vendor_name|lower }}"
+         data-created="{{ a.created_at[:10] }}"
+         data-engagement="{{ (a.nature_of_engagement or '')|lower }}"
+         data-gaps="{{ a.summary.total_gaps if a.summary else 0 }}"
+         data-name="{{ a.vendor_name|lower }}">
+        <a href="/assessments/{{ a.id }}/analytics" class="text-decoration-none d-block h-100">
+            <div class="acard {{ color_classes[loop.index0 % 6] }} h-100">
+                <div class="acard-stripe"></div>
+                <div class="acard-body">
+                    <!-- Header: Avatar + Name + Arrow -->
+                    <div class="d-flex align-items-start gap-3 mb-2">
+                        <div class="acard-avatar">
                             {{ a.vendor_name[0] | upper }}
                         </div>
-                        <div class="overflow-hidden">
-                            <div class="fw-semibold text-truncate" style="color:var(--text-primary)">{{ a.vendor_name }}</div>
-                            <div class="text-muted small">{{ a.created_at[:16] | replace('T', ' ') }}</div>
+                        <div class="flex-grow-1 overflow-hidden">
+                            <div class="acard-vendor">{{ a.vendor_name }}</div>
+                            <div class="acard-meta">
+                                <span class="acard-version">v{{ a.version }}</span>
+                                <span class="dot">&middot;</span>
+                                <span>{{ a.created_at[:10] }}</span>
+                                {% if a.division %}
+                                <span class="dot">&middot;</span>
+                                <span>{{ a.division }}</span>
+                                {% endif %}
+                            </div>
                         </div>
-                        <i class="bi bi-arrow-right-circle ms-auto text-primary fs-5"></i>
+                        <i class="bi bi-arrow-right-short acard-arrow"></i>
                     </div>
-                    <div class="row g-2 text-center">
-                        <div class="col-4">
-                            <div class="border rounded py-2">
-                                <div class="fw-bold">{% if a.summary %}{{ a.summary.total_gaps }}{% else %}—{% endif %}</div>
-                                <div class="text-muted" style="font-size:0.72rem">Gaps</div>
-                            </div>
+
+                    <!-- Risk + Engagement badges -->
+                    <div class="d-flex align-items-center gap-2 mb-1 mt-2" style="min-height:22px">
+                        {% if risk %}
+                        <span class="acard-risk acard-risk-{{ risk }}">{{ risk }}</span>
+                        {% endif %}
+                        {% if a.nature_of_engagement %}
+                        <span style="font-size:.66rem;font-weight:600;padding:.18rem .5rem;border-radius:4px;background:var(--bg-subtle);color:var(--text-secondary);border:1px solid var(--border-color)">{{ a.nature_of_engagement|title }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- KPI boxes -->
+                    <div class="acard-kpis">
+                        <div class="acard-kpi">
+                            <div class="acard-kpi-val" style="color:#ef4444">{% if a.summary %}{{ a.summary.total_gaps }}{% else %}&mdash;{% endif %}</div>
+                            <div class="acard-kpi-lbl">Gaps</div>
                         </div>
-                        <div class="col-4">
-                            <div class="border rounded py-2">
-                                <div class="fw-bold">{% if a.summary %}{{ a.summary.total_recommendations }}{% else %}—{% endif %}</div>
-                                <div class="text-muted" style="font-size:0.72rem">Recs</div>
-                            </div>
+                        <div class="acard-kpi">
+                            <div class="acard-kpi-val" style="color:var(--teal)">{% if a.summary %}{{ a.summary.total_recommendations }}{% else %}&mdash;{% endif %}</div>
+                            <div class="acard-kpi-lbl">Recs</div>
                         </div>
-                        <div class="col-4">
-                            <div class="border rounded py-2">
-                                <div class="fw-bold">{% if a.summary %}{{ a.summary.total_remedial_actions }}{% else %}—{% endif %}</div>
-                                <div class="text-muted" style="font-size:0.72rem">Actions</div>
-                            </div>
+                        <div class="acard-kpi">
+                            <div class="acard-kpi-val" style="color:#f59e0b">{% if a.summary %}{{ a.summary.total_remedial_actions }}{% else %}&mdash;{% endif %}</div>
+                            <div class="acard-kpi-lbl">Actions</div>
                         </div>
                     </div>
                 </div>
@@ -82,17 +201,63 @@
 {% block scripts %}
 <script>
 function filterAnalyticsCards() {
-    const query = (document.getElementById('analytics-search')?.value || '').trim().toLowerCase();
-    const cards = document.querySelectorAll('#analytics-cards-row > div');
-    let shown = 0;
-    cards.forEach(card => {
-        const text = card.textContent.toLowerCase();
-        const match = !query || text.includes(query);
-        card.style.display = match ? '' : 'none';
-        if (match) shown++;
+    var query = (document.getElementById('analytics-search').value || '').trim().toLowerCase();
+    var dateDays = parseInt(document.getElementById('filter-date').value) || 0;
+    var engVal = (document.getElementById('filter-engagement').value || '').toLowerCase();
+    var cards = document.querySelectorAll('#analytics-cards-row .analytics-card-col');
+    var now = new Date();
+    var shown = 0;
+
+    cards.forEach(function(card) {
+        var vendor = card.getAttribute('data-vendor') || '';
+        var created = card.getAttribute('data-created') || '';
+        var engagement = card.getAttribute('data-engagement') || '';
+        var show = true;
+
+        // Text search
+        if (query && vendor.indexOf(query) === -1) show = false;
+
+        // Date filter
+        if (show && dateDays > 0 && created) {
+            var d = new Date(created);
+            var diff = (now - d) / (1000 * 60 * 60 * 24);
+            if (diff > dateDays) show = false;
+        }
+
+        // Engagement filter
+        if (show && engVal && engagement !== engVal) show = false;
+
+        card.style.display = show ? '' : 'none';
+        if (show) shown++;
     });
-    const countEl = document.getElementById('analytics-count');
+
+    var countEl = document.getElementById('analytics-count');
     if (countEl) countEl.textContent = shown + ' assessment' + (shown !== 1 ? 's' : '');
+}
+
+function sortAnalyticsCards() {
+    var sortBy = document.getElementById('sort-by').value;
+    var container = document.getElementById('analytics-cards-row');
+    var cards = Array.from(container.querySelectorAll('.analytics-card-col'));
+
+    cards.sort(function(a, b) {
+        switch (sortBy) {
+            case 'oldest':
+                return (a.getAttribute('data-created') || '').localeCompare(b.getAttribute('data-created') || '');
+            case 'newest':
+                return (b.getAttribute('data-created') || '').localeCompare(a.getAttribute('data-created') || '');
+            case 'name-az':
+                return (a.getAttribute('data-name') || '').localeCompare(b.getAttribute('data-name') || '');
+            case 'name-za':
+                return (b.getAttribute('data-name') || '').localeCompare(a.getAttribute('data-name') || '');
+            case 'gaps-desc':
+                return (parseInt(b.getAttribute('data-gaps')) || 0) - (parseInt(a.getAttribute('data-gaps')) || 0);
+            default:
+                return 0;
+        }
+    });
+
+    cards.forEach(function(card) { container.appendChild(card); });
 }
 </script>
 {% endblock %}

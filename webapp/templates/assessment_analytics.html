@@ -323,7 +323,7 @@
                     <canvas id="chart-rec-source"></canvas>
                 </div>
                 {% set source_label_map = {'existing': 'Existing Clause', 'new': 'New Suggestion', 'future_risk': 'Future Risk'} %}
-                {% set source_color_list = ['#4f46e5','#10b981','#8b5cf6','#f59e0b'] %}
+                {% set source_color_list = ['#00b897','#10b981','#3b82f6','#f59e0b'] %}
                 <ul class="donut-legend-list">
                     {% for k, v in rec_source_counts.items() if v > 0 %}
                     <li>
@@ -400,156 +400,214 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
-Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-Chart.defaults.color = '#64748b';
+/* ── Theme detection ──────────────────────────────────────────── */
+const _dark  = document.documentElement.getAttribute('data-theme') === 'dark';
+const _txt   = _dark ? '#a0a8b8' : '#64748b';
+const _grid  = _dark ? 'rgba(255,255,255,0.045)' : 'rgba(15,31,51,0.065)';
+const _ptBdr = _dark ? '#18181c' : '#ffffff';
+const TTP = {
+    backgroundColor: _dark ? '#1c1c22' : '#ffffff',
+    borderColor:     _dark ? '#2a2a32' : '#e0e6ed',
+    borderWidth: 1,
+    titleColor:  _dark ? '#eef0f4' : '#1a2332',
+    bodyColor:   _dark ? '#a0a8b8' : '#4b5c6e',
+    padding: 12, cornerRadius: 10,
+    titleFont: { weight: '600', size: 12 },
+    bodyFont:  { size: 11 },
+    displayColors: true, boxPadding: 5,
+};
 
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.color = _txt;
+
+/* ── Data maps ──────────────────────────────────────────────── */
 const GAP_LABELS = {
-    control_missing:   'Control Missing',
-    partial_compliance:'Partial Compliance',
-    evidence_gap:      'Evidence Gap',
-    future_risk:       'Future Risk',
+    control_missing:    'Control Missing',
+    partial_compliance: 'Partial Compliance',
+    evidence_gap:       'Evidence Gap',
+    future_risk:        'Future Risk',
 };
 const GAP_COLORS = {
-    control_missing:   '#ef4444',
-    partial_compliance:'#f59e0b',
-    evidence_gap:      '#3b82f6',
-    future_risk:       '#8b5cf6',
+    control_missing:    '#ef4444',
+    partial_compliance: '#f59e0b',
+    evidence_gap:       '#3b82f6',
+    future_risk:        '#8b5cf6',
 };
 const PRIORITY_LABELS = {
     must_have:    'Must Have',
     should_have:  'Should Have',
     nice_to_have: 'Nice to Have',
     immediate:    'Immediate',
-    short_term:   'Short Term',
-    medium_term:  'Medium Term',
-    long_term:    'Long Term',
+    short_term:   'Short-Term',
+    medium_term:  'Mid-Term',
+    long_term:    'Long-Term',
     unset:        'Unspecified',
 };
 const PRIORITY_COLORS = ['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#10b981','#06b6d4','#64748b','#94a3b8'];
 const SOURCE_LABELS = { existing: 'Existing Clause', new: 'New Suggestion', future_risk: 'Future Risk' };
-const SOURCE_COLORS = ['#4f46e5', '#10b981', '#8b5cf6', '#f59e0b'];
+const SOURCE_COLORS = ['#00b897','#10b981','#3b82f6','#f59e0b'];
 
+/* ── Gradient helpers ──────────────────────────────────────── */
+function hBarGrad(chart, col) {
+    const {ctx, chartArea} = chart;
+    if (!chartArea) return col + 'cc';
+    const g = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+    g.addColorStop(0, col + 'ff');
+    g.addColorStop(1, col + '77');
+    return g;
+}
+
+/* ── buildDonut — animated, themed ─────────────────────────── */
 function buildDonut(canvasId, rawCounts, labelMap, colorMap, cutout) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
+    const el = document.getElementById(canvasId);
+    if (!el) return;
     const keys = Object.keys(rawCounts).filter(k => rawCounts[k] > 0);
-    new Chart(ctx, {
+    if (!keys.length) return;
+
+    new Chart(el, {
         type: 'doughnut',
         data: {
             labels: keys.map(k => labelMap[k] || k),
             datasets: [{
                 data: keys.map(k => rawCounts[k]),
                 backgroundColor: keys.map(k => colorMap[k] || '#94a3b8'),
-                borderWidth: 0,
-                hoverOffset: 6,
+                hoverBackgroundColor: keys.map(k => (colorMap[k] || '#94a3b8')),
+                borderWidth: 3,
+                borderColor: _ptBdr,
+                hoverOffset: 12,
             }]
         },
         options: {
-            responsive: false,
-            maintainAspectRatio: false,
+            responsive: false, maintainAspectRatio: false,
             cutout: cutout || '70%',
+            animation: { animateRotate: true, animateScale: false, duration: 950, easing: 'easeOutQuart' },
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}` } }
+                tooltip: { ...TTP, callbacks: {
+                    label: c => `  ${c.label}: ${c.parsed}`
+                }}
             }
         }
     });
 }
 
+/* ── buildHBar — animated, gradient, themed ─────────────────── */
 function buildHBar(canvasId, rawCounts, labelMap, colors) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-    const keys = Object.keys(rawCounts).sort((a, b) => rawCounts[b] - rawCounts[a]);
-    new Chart(ctx, {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+    const keys = Object.keys(rawCounts).filter(k => rawCounts[k] > 0)
+                       .sort((a, b) => rawCounts[b] - rawCounts[a]);
+    if (!keys.length) return;
+
+    new Chart(el, {
         type: 'bar',
         data: {
             labels: keys.map(k => labelMap[k] || k),
             datasets: [{
                 data: keys.map(k => rawCounts[k]),
-                backgroundColor: keys.map((_, i) => colors[i % colors.length] + 'bb'),
-                borderColor:     keys.map((_, i) => colors[i % colors.length]),
-                borderWidth: 1,
-                borderRadius: 4,
+                backgroundColor: c2 => hBarGrad(c2.chart, colors[c2.dataIndex % colors.length]),
+                borderWidth: 0,
+                borderRadius: 6,
+                borderSkipped: 'start',
                 barThickness: 24,
             }]
         },
         options: {
             indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 950, easing: 'easeOutQuart',
+                delay: c2 => c2.type === 'data' ? (c2.dataIndex || 0) * 90 : 0 },
+            plugins: {
+                legend: { display: false },
+                tooltip: { ...TTP, callbacks: {
+                    label: c => `  ${c.parsed.x} item${c.parsed.x !== 1 ? 's' : ''}`
+                }}
+            },
             scales: {
-                x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0, font: { size: 11 } }, grid: { color: '#e2e8f040' } },
-                y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+                x: { beginAtZero: true, border: { display: false },
+                    ticks: { stepSize: 1, precision: 0, font: { size: 11 }, color: _txt },
+                    grid: { color: _grid } },
+                y: { grid: { display: false }, border: { display: false },
+                    ticks: { font: { size: 11 }, color: _txt } }
             }
         }
     });
 }
 
-// Chart 1 — Gap Type Donut
+/* ── Chart 1: Gap Type Donut ──────────────────────────────── */
 buildDonut('chart-gap-types', {{ gap_type_counts | tojson }}, GAP_LABELS, GAP_COLORS, '68%');
 
-// Chart 1b — Gap Status Donut (Open vs Closed)
+/* ── Chart 2: Gap Status Donut ────────────────────────────── */
 (function () {
-    const ctx = document.getElementById('chart-gap-status');
-    if (!ctx) return;
+    const el = document.getElementById('chart-gap-status');
+    if (!el) return;
     const openCount   = {{ gap_open_count }};
     const closedCount = {{ gap_closed_count }};
     if (openCount + closedCount === 0) return;
-    new Chart(ctx, {
+
+    new Chart(el, {
         type: 'doughnut',
         data: {
             labels: ['Open', 'Closed'],
             datasets: [{
                 data: [openCount, closedCount],
-                backgroundColor: ['#ef4444', '#10b981'],
-                borderWidth: 0,
-                hoverOffset: 5,
+                backgroundColor: ['#ef4444','#10b981'],
+                hoverBackgroundColor: ['#f87171','#34d399'],
+                borderWidth: 3,
+                borderColor: _ptBdr,
+                hoverOffset: 12,
             }]
         },
         options: {
             cutout: '72%',
-            responsive: false,
-            maintainAspectRatio: false,
+            animation: { animateRotate: true, duration: 950, easing: 'easeOutQuart' },
+            responsive: false, maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}` } }
+                tooltip: { ...TTP, callbacks: {
+                    label: c => `  ${c.label}: ${c.parsed}`
+                }}
             }
         }
     });
 })();
 
-// Chart 2 — Question Coverage Donut
+/* ── Chart 3: Question Coverage Donut ────────────────────── */
 (function () {
-    const ctx = document.getElementById('chart-coverage');
-    if (!ctx) return;
+    const el = document.getElementById('chart-coverage');
+    if (!el) return;
     const answered  = {{ answered }};
     const missing   = {{ unanswered }};
     const otherGaps = Math.max(0, {{ gap_open_count }} - missing);
-    new Chart(ctx, {
+
+    new Chart(el, {
         type: 'doughnut',
         data: {
             labels: ['Answered', 'Missing Control', 'Other Gaps'],
             datasets: [{
                 data: [answered, missing, otherGaps],
-                backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-                borderWidth: 0,
-                hoverOffset: 5,
+                backgroundColor: ['#10b981','#ef4444','#f59e0b'],
+                hoverBackgroundColor: ['#34d399','#f87171','#fbbf24'],
+                borderWidth: 3,
+                borderColor: _ptBdr,
+                hoverOffset: 12,
             }]
         },
         options: {
             cutout: '72%',
-            responsive: false,
-            maintainAspectRatio: false,
+            animation: { animateRotate: true, duration: 950, easing: 'easeOutQuart' },
+            responsive: false, maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}` } }
+                tooltip: { ...TTP, callbacks: {
+                    label: c => `  ${c.label}: ${c.parsed}`
+                }}
             }
         }
     });
 })();
 
-// Chart 3 — Recommendation Source Donut
+/* ── Chart 4: Recommendation Source Donut ────────────────── */
 (function () {
     const raw  = {{ rec_source_counts | tojson }};
     const keys = Object.keys(raw);
@@ -558,10 +616,10 @@ buildDonut('chart-gap-types', {{ gap_type_counts | tojson }}, GAP_LABELS, GAP_CO
         '65%');
 })();
 
-// Chart 4 — Recommendation Priority Horizontal Bar
+/* ── Chart 5: Recommendation Priority Bar ────────────────── */
 buildHBar('chart-rec-priority',      {{ rec_priority_counts      | tojson }}, PRIORITY_LABELS, PRIORITY_COLORS);
 
-// Chart 5 — Remedial Priority Horizontal Bar
+/* ── Chart 6: Remedial Priority Bar ─────────────────────── */
 buildHBar('chart-remedial-priority', {{ remedial_priority_counts | tojson }}, PRIORITY_LABELS, PRIORITY_COLORS);
 </script>
 {% endblock %}

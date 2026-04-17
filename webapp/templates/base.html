@@ -7,7 +7,10 @@
     <link href="/static/vendor/css/bootstrap.min.css" rel="stylesheet">
     <link href="/static/vendor/css/bootstrap-icons.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="/static/css/style.css?v=2" rel="stylesheet">
+    <link href="/static/css/style.css?v=5" rel="stylesheet">
+    <script>/* Apply saved theme before paint */
+    (function(){var t=localStorage.getItem('tprm-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');})()
+    </script>
     {% if user and user.csrf_token %}
     <meta name="csrf-token" content="{{ user.csrf_token }}">
     {% endif %}
@@ -16,15 +19,15 @@
 <body>
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-        <div class="sidebar-brand">
+        <a href="/home" class="sidebar-brand" style="text-decoration:none;color:inherit">
             <div class="brand-icon">
-                <i class="bi bi-shield-check"></i>
+                <img src="/static/img/titan-logo.png" alt="Titan" style="height:28px;width:auto;">
             </div>
             <div class="brand-text">
                 <span class="brand-name">TPRM AI</span>
-                <span class="brand-tagline">Risk Platform</span>
+                <span class="brand-tagline">Titan Company</span>
             </div>
-        </div>
+        </a>
 
         <nav class="sidebar-nav">
             <div class="nav-section-label">MAIN MENU</div>
@@ -61,6 +64,16 @@
                 <span>Settings</span>
             </a>
         </nav>
+
+        <!-- Theme Toggle -->
+        <div class="theme-toggle-row">
+            <i class="bi bi-moon-stars-fill" id="theme-icon"></i>
+            <span class="theme-toggle-label">Dark Mode</span>
+            <label class="theme-switch">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
 
         {% if user %}
         <div class="sidebar-footer">
@@ -142,6 +155,25 @@
             .replace(/'/g, '&#39;');
     }
 
+    /**
+     * safeJson — safely parse a fetch Response as JSON.
+     * Returns the parsed object, or throws an Error with a user-friendly message
+     * if the response is not valid JSON (e.g. an HTML error page from a proxy).
+     */
+    async function safeJson(resp) {
+        const ct = (resp.headers.get('content-type') || '');
+        if (ct.includes('application/json')) {
+            return await resp.json();
+        }
+        // Not JSON — read as text for a useful error message
+        const text = (await resp.text()).substring(0, 200);
+        throw new Error(
+            resp.ok
+            ? 'Server returned an unexpected response. Please try again.'
+            : `Server error (${resp.status}). This may be caused by large file uploads or a temporary issue.`
+        );
+    }
+
     /* CSRF: automatically inject X-CSRF-Token on all state-changing fetch() calls */
     (function () {
         var _meta = document.querySelector('meta[name="csrf-token"]');
@@ -167,6 +199,34 @@
             }
             return _origFetch.call(this, input, init);
         };
+    })();
+
+    /* ── Theme Toggle ─────────────────────────────────────────── */
+    (function () {
+        var toggle = document.getElementById('theme-toggle');
+        var icon = document.getElementById('theme-icon');
+        if (!toggle) return;
+
+        function applyTheme(dark) {
+            if (dark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('tprm-theme', 'dark');
+                toggle.checked = true;
+                if (icon) { icon.className = 'bi bi-sun-fill'; }
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('tprm-theme', 'light');
+                toggle.checked = false;
+                if (icon) { icon.className = 'bi bi-moon-stars-fill'; }
+            }
+        }
+
+        // Init from saved preference
+        applyTheme(localStorage.getItem('tprm-theme') === 'dark');
+
+        toggle.addEventListener('change', function () {
+            applyTheme(this.checked);
+        });
     })();
     </script>
     <script src="/static/js/app.js"></script>

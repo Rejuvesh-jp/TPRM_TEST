@@ -12,11 +12,14 @@ import hmac as _hmac
 import logging
 import os
 import sys
+import traceback
 from pathlib import Path
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
@@ -69,6 +72,46 @@ app = FastAPI(
 # ── Rate limiter ─────────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+_logger = logging.getLogger("tprm.app")
+
+
+# ── Global exception handlers — always return JSON for /api/ routes ────
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Return JSON instead of HTML for HTTP errors on API routes."""
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(
+            {"detail": exc.detail},
+            status_code=exc.status_code,
+        )
+    # For page routes, re-raise so FastAPI renders the default error page
+    from starlette.responses import HTMLResponse
+    return HTMLResponse(f"<h1>{exc.status_code}</h1><p>{exc.detail}</p>", status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return clean JSON for validation errors."""
+    _logger.warning("Validation error on %s: %s", request.url.path, exc.errors())
+    return JSONResponse(
+        {"detail": "Validation error", "errors": exc.errors()},
+        status_code=422,
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all: log the traceback and return JSON instead of HTML 500."""
+    _logger.error(
+        "Unhandled exception on %s %s:\n%s",
+        request.method, request.url.path,
+        traceback.format_exc(),
+    )
+    return JSONResponse(
+        {"detail": "Internal server error"},
+        status_code=500,
+    )
 
 # ── CORS — restrict to known origins ─────────────────────
 # Override via ALLOWED_ORIGINS env var (comma-separated list) for production

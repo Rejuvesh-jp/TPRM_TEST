@@ -357,8 +357,12 @@ def _run_pipeline_inner(assessment_id, meta, use_openai, vendor_name_hint,
         embed_fn = openai_embed_text
         embed_batch_fn = openai_embed_texts
         import httpx
-        # verify=True: validate TLS certificates. Override via OPENAI_SSL_VERIFY=false for local dev proxies only.
-        _ssl_verify = os.getenv("OPENAI_SSL_VERIFY", "true").lower() != "false"
+        # verify=True: validate TLS certificates. Override via OPENAI_SSL_VERIFY=false or TPRM_SSL_VERIFY=false.
+        _ssl_false = {"false", "0", "no"}
+        _ssl_verify = (
+            os.getenv("OPENAI_SSL_VERIFY", "true").lower() not in _ssl_false
+            and os.getenv("TPRM_SSL_VERIFY", "true").lower() not in _ssl_false
+        )
         _gateway_base = "https://ai.titan.in/gateway"
 
         def _fresh_client():

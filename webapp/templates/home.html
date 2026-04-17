@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TPRM AI — Titan Company</title>
+<link href="/static/vendor/css/bootstrap.min.css" rel="stylesheet">
+<link href="/static/vendor/css/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════
+   TPRM AI — Homepage Styles (Titan Brand Aligned)
+   Deep Navy + Teal, Inter font, glassmorphism accents
+   ══════════════════════════════════════════════════════════ */
+:root {
+    --navy:       #0a1628;
+    --navy-light: #0f2035;
+    --navy-mid:   #142a42;
+    --teal:       #00c9a7;
+    --teal-glow:  rgba(0,201,167,.25);
+    --teal-dim:   rgba(0,201,167,.08);
+    --gold:       #c8a04e;
+    --white:      #f0f4f8;
+    --muted:      #8899aa;
+    --card-bg:    rgba(15,32,53,.65);
+    --glass:      rgba(255,255,255,.04);
+    --border:     rgba(255,255,255,.06);
+}
+*, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+html { scroll-behavior: smooth; }
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+a { color: var(--teal); text-decoration: none; }
+a:hover { color: #33dbb8; }
+
+/* ── Animated Grid Background ─────────────────────────── */
+.hero-bg {
+    position: fixed; inset:0; z-index:0; overflow:hidden;
+    background:
+        linear-gradient(180deg, var(--navy) 0%, var(--navy-light) 40%, var(--navy) 100%);
+}
+.hero-bg .grid {
+    position: absolute; inset: -50%; width:200%; height:200%;
+    background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridScroll 40s linear infinite;
+}
+@keyframes gridScroll {
+    0%   { transform: translate(0, 0); }
+    100% { transform: translate(60px, 60px); }
+}
+/* Floating orbs */
+.orb {
+    position: absolute; border-radius:50%; filter: blur(80px); opacity:.35;
+    animation: orbFloat 20s ease-in-out infinite alternate;
+}
+.orb-1 { width:500px; height:500px; background:var(--teal); top:-10%; left:-5%; animation-duration:22s; }
+.orb-2 { width:350px; height:350px; background:#4f46e5; bottom:10%; right:-5%; animation-duration:18s; animation-delay:-8s; }
+.orb-3 { width:250px; height:250px; background:var(--gold); top:50%; left:40%; animation-duration:25s; animation-delay:-12s; opacity:.15; }
+@keyframes orbFloat {
+    0%  { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(40px, -30px) scale(1.1); }
+    100%{ transform: translate(-20px, 20px) scale(.95); }
+}
+
+/* ── Fixed Nav ────────────────────────────────────────── */
+.home-nav {
+    position: fixed; top:0; left:0; right:0; z-index:100;
+    padding: 1rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    backdrop-filter: blur(20px);
+    background: rgba(10,22,40,.7);
+    border-bottom: 1px solid var(--border);
+    transition: background .3s;
+}
+.home-nav.scrolled { background: rgba(10,22,40,.95); }
+.nav-brand {
+    display: flex; align-items: center; gap: .75rem;
+    cursor: pointer;
+}
+.nav-brand img {
+    height: 38px; width: auto;
+    filter: brightness(1.1);
+    transition: transform .3s;
+}
+.nav-brand:hover img { transform: scale(1.05); }
+.nav-brand-text {
+    display: flex; flex-direction: column; line-height:1.15;
+}
+.nav-brand-name {
+    font-size: 1.15rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--white), var(--teal));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.nav-brand-tag {
+    font-size: .62rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .12em; font-weight: 500;
+}
+.nav-links { display:flex; align-items:center; gap:1.5rem; }
+.nav-links a {
+    font-size: .85rem; font-weight: 500; color: var(--muted);
+    transition: color .2s; position:relative;
+}
+.nav-links a:hover { color: var(--white); }
+.nav-links a::after {
+    content:''; position:absolute; bottom:-4px; left:0; width:0; height:2px;
+    background:var(--teal); transition: width .25s;
+}
+.nav-links a:hover::after { width:100%; }
+.btn-launch {
+    padding: .55rem 1.4rem; border-radius: 8px; font-size: .85rem; font-weight: 600;
+    background: linear-gradient(135deg, var(--teal), #009e85);
+    color: var(--navy); border: none; cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+}
+.btn-launch:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px var(--teal-glow);
+    color: var(--navy);
+}
+
+/* ── Section base ─────────────────────────────────────── */
+section { position: relative; z-index:1; }
+.section-pad { padding: 6rem 0; }
+.container-home { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* ── Scroll reveal ────────────────────────────────────── */
+.reveal {
+    opacity: 0; transform: translateY(40px);
+    transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1);
+}
+.reveal.visible { opacity:1; transform: translateY(0); }
+
+/* ── HERO ─────────────────────────────────────────────── */
+.hero {
+    min-height: 100vh; display:flex; align-items:center; justify-content:center;
+    text-align:center; padding-top:80px;
+}
+.hero-eyebrow {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .35rem 1rem; border-radius: 999px;
+    background: var(--teal-dim);
+    border: 1px solid rgba(0,201,167,.2);
+    font-size: .78rem; font-weight: 500; color: var(--teal);
+    margin-bottom: 1.5rem;
+}
+.hero-eyebrow .live-dot {
+    width: 8px; height: 8px; border-radius:50%; background:var(--teal);
+    animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity:1; transform: scale(1); }
+    50%      { opacity:.4; transform: scale(.7); }
+}
+.hero h1 {
+    font-size: clamp(2.4rem, 5.5vw, 4.2rem); font-weight: 900;
+    line-height: 1.1; letter-spacing: -.03em;
+    margin-bottom: 1.25rem;
+}
+.hero h1 .gradient-text {
+    background: linear-gradient(135deg, var(--teal) 0%, #33dbb8 40%, var(--gold) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-sub {
+    font-size: clamp(1rem, 2vw, 1.2rem); color: var(--muted);
+    max-width: 640px; margin: 0 auto 2.5rem; line-height:1.7;
+}
+.hero-ctas { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; }
+.btn-hero-primary {
+    padding: .8rem 2rem; border-radius:10px; font-size:1rem; font-weight:700;
+    background: linear-gradient(135deg, var(--teal), #009e85);
+    color: var(--navy); border: none; cursor: pointer;
+    transition: all .25s; display:inline-flex; align-items:center; gap:.5rem;
+}
+.btn-hero-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px var(--teal-glow);
+    color: var(--navy);
+}
+.btn-hero-secondary {
+    padding: .8rem 2rem; border-radius:10px; font-size:1rem; font-weight:600;
+    background: transparent; color: var(--white);
+    border: 1px solid rgba(255,255,255,.15); cursor: pointer;
+    transition: all .25s; display:inline-flex; align-items:center; gap:.5rem;
+}
+.btn-hero-secondary:hover {
+    border-color: var(--teal); color: var(--teal);
+    background: var(--teal-dim);
+}
+
+/* ── Stats row ────────────────────────────────────────── */
+.stats-row {
+    display: flex; justify-content:center; gap:3rem; margin-top:4rem;
+    flex-wrap: wrap;
+}
+.stat-item { text-align:center; }
+.stat-num {
+    font-size: 2.2rem; font-weight: 900;
+    background: linear-gradient(135deg, var(--teal), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.stat-label { font-size: .78rem; color: var(--muted); margin-top: .15rem; text-transform:uppercase; letter-spacing:.06em; }
+
+/* ── Section headings ─────────────────────────────────── */
+.section-badge {
+    display: inline-flex; align-items:center; gap:.4rem;
+    padding: .3rem .9rem; border-radius:999px;
+    background: var(--teal-dim); border:1px solid rgba(0,201,167,.15);
+    font-size:.72rem; font-weight:600; color:var(--teal);
+    text-transform:uppercase; letter-spacing:.08em;
+    margin-bottom:1rem;
+}
+.section-title {
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight:800;
+    line-height:1.15; margin-bottom:.75rem;
+}
+.section-desc {
+    font-size:1.05rem; color:var(--muted); max-width:600px; line-height:1.7;
+}
+
+/* ── How It Works — Step cards ────────────────────────── */
+.steps-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem; margin-top: 2.5rem;
+}
+.step-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem 1.75rem;
+    cursor: default;
+    transition: all .3s;
+    position: relative; overflow:hidden;
+}
+.step-card::before {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(135deg, var(--teal-glow), transparent);
+    opacity:0; transition: opacity .3s;
+}
+.step-card:hover::before { opacity:1; }
+.step-card:hover {
+    border-color: rgba(0,201,167,.3);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 50px rgba(0,0,0,.3);
+}
+.step-num {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:40px; height:40px; border-radius:10px;
+    background: var(--teal-dim); border:1px solid rgba(0,201,167,.2);
+    font-size:.9rem; font-weight:800; color:var(--teal);
+    margin-bottom:1rem; position:relative; z-index:1;
+}
+.step-title {
+    font-size:1.1rem; font-weight:700; margin-bottom:.5rem;
+    position:relative; z-index:1;
+}
+.step-desc {
+    font-size:.88rem; color:var(--muted); line-height:1.65;
+    position:relative; z-index:1;
+}
+
+/* ── Features grid ────────────────────────────────────── */
+.features-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem; margin-top: 2.5rem;
+}
+.feature-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    transition: all .3s;
+}
+.feature-card:hover {
+    border-color: rgba(0,201,167,.25);
+    box-shadow: 0 0 40px var(--teal-dim);
+    transform: translateY(-3px);
+}
+.feature-icon {
+    width:48px; height:48px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.3rem; margin-bottom:1rem;
+    background: var(--teal-dim); color: var(--teal);
+    border: 1px solid rgba(0,201,167,.15);
+}
+.feature-title { font-size:1.05rem; font-weight:700; margin-bottom:.4rem; }
+.feature-desc { font-size:.88rem; color:var(--muted); line-height:1.65; }
+
+/* ── Terminal preview ─────────────────────────────────── */
+.terminal-section { background: var(--navy-light); }
+.terminal-wrap {
+    background: #0d1117; border-radius:16px;
+    border: 1px solid rgba(255,255,255,.06);
+    overflow:hidden; box-shadow: 0 30px 80px rgba(0,0,0,.5);
+}
+.terminal-bar {
+    display:flex; align-items:center; gap:.5rem;
+    padding:.75rem 1.25rem;
+    background: rgba(255,255,255,.03);
+    border-bottom:1px solid rgba(255,255,255,.06);
+}
+.terminal-dot { width:12px; height:12px; border-radius:50%; }
+.terminal-dot.r { background:#ff5f57; }
+.terminal-dot.y { background:#ffbd2e; }
+.terminal-dot.g { background:#28c840; }
+.terminal-title { margin-left:.75rem; font-size:.75rem; color:var(--muted); font-weight:500; }
+.terminal-body {
+    padding: 1.5rem; font-family: 'SF Mono', 'Fira Code', 'Cascadia Mono', monospace;
+    font-size: .82rem; line-height: 1.8; color: #c9d1d9;
+    min-height: 280px;
+}
+.terminal-body .cmd { color: var(--teal); }
+.terminal-body .dim { color: #484f58; }
+.terminal-body .warn { color: #d29922; }
+.terminal-body .ok { color: #3fb950; }
+.terminal-body .hi { color: #79c0ff; }
+.cursor-blink {
+    display:inline-block; width:8px; height:16px;
+    background: var(--teal); border-radius:1px;
+    animation: blink 1s step-end infinite;
+    vertical-align: text-bottom;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+.proof-points { margin-top:2.5rem; }
+.proof-item {
+    display:flex; align-items:flex-start; gap:.75rem;
+    margin-bottom:1.25rem;
+}
+.proof-icon {
+    width:32px; height:32px; border-radius:8px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background: var(--teal-dim); color:var(--teal);
+    font-size:.9rem;
+}
+.proof-text { font-size:.9rem; color:var(--muted); line-height:1.55; }
+.proof-text strong { color:var(--white); }
+
+/* ── CTA Banner ───────────────────────────────────────── */
+.cta-banner {
+    background: linear-gradient(135deg, var(--navy-mid), var(--navy-light));
+    border: 1px solid var(--border); border-radius:20px;
+    padding: 4rem 3rem; text-align:center;
+    position:relative; overflow:hidden;
+}
+.cta-banner::before {
+    content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
+    background: radial-gradient(circle at 30% 50%, var(--teal-glow), transparent 60%);
+    opacity:.5;
+}
+.cta-banner h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight:800; margin-bottom:.75rem; position:relative; }
+.cta-banner p { color:var(--muted); font-size:1.05rem; margin-bottom:2rem; position:relative; }
+
+/* ── Footer ───────────────────────────────────────────── */
+.home-footer {
+    padding: 2.5rem 0; border-top:1px solid var(--border);
+    text-align:center;
+}
+.home-footer .footer-brand {
+    display:flex; align-items:center; justify-content:center; gap:.75rem;
+    margin-bottom:.75rem;
+}
+.home-footer img { height:30px; opacity:.7; }
+.home-footer .footer-text { font-size:.78rem; color:var(--muted); }
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (max-width: 768px) {
+    .home-nav { padding: .75rem 1rem; }
+    .nav-links { gap: .8rem; }
+    .nav-links a { font-size: .78rem; }
+    .stats-row { gap: 1.5rem; }
+    .stat-num { font-size: 1.6rem; }
+    .steps-grid, .features-grid { grid-template-columns: 1fr; }
+    .cta-banner { padding: 2.5rem 1.5rem; }
+}
+@media (max-width: 480px) {
+    .hero h1 { font-size: 2rem; }
+    .nav-links .nav-hide-mobile { display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="hero-bg" aria-hidden="true">
+    <div class="grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+
+<!-- ═══════════ NAV ═══════════ -->
+<nav class="home-nav" id="homeNav">
+    <a href="/home" class="nav-brand">
+        <img src="/static/img/titan-logo.png" alt="Titan">
+        <div class="nav-brand-text">
+            <span class="nav-brand-name">TPRM AI</span>
+            <span class="nav-brand-tag">A Titan Company Initiative</span>
+        </div>
+    </a>
+    <div class="nav-links">
+        <a href="#how-it-works" class="nav-hide-mobile">How It Works</a>
+        <a href="#features" class="nav-hide-mobile">Features</a>
+        <a href="#preview" class="nav-hide-mobile">Preview</a>
+    </div>
+</nav>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero">
+    <div class="container-home">
+        <div class="reveal">
+            <div class="hero-eyebrow">
+                <span class="live-dot"></span>
+                AI-Powered Risk Intelligence
+            </div>
+            <h1>
+                Smarter Third-Party<br>
+                Risk Management,<br>
+                <span class="gradient-text">Powered by AI</span>
+            </h1>
+            <p class="hero-sub">
+                Assess vendor risks in minutes, not weeks. Automatically identify compliance gaps,
+                generate actionable recommendations, and produce audit-ready reports — all from
+                a single platform.
+            </p>
+            <div class="hero-ctas">
+                <a href="/" class="btn-hero-primary">
+                    <i class="bi bi-arrow-right-circle-fill"></i> Get Started
+                </a>
+                <a href="#how-it-works" class="btn-hero-secondary">
+                    <i class="bi bi-play-circle"></i> See How It Works
+                </a>
+            </div>
+        </div>
+        <div class="stats-row reveal">
+            <div class="stat-item">
+                <div class="stat-num" data-target="50" data-suffix="+">0</div>
+                <div class="stat-label">Vendors Assessed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num" data-target="500" data-suffix="+">0</div>
+                <div class="stat-label">Gaps Identified</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num" data-target="10" data-suffix="x">0</div>
+                <div class="stat-label">Faster Than Manual</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-num" data-target="99" data-suffix="%">0</div>
+                <div class="stat-label">Consistency Rate</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ HOW IT WORKS ═══════════ -->
+<section class="section-pad" id="how-it-works">
+    <div class="container-home">
+        <div class="text-center reveal">
+            <div class="section-badge"><i class="bi bi-lightning-charge-fill"></i> Workflow</div>
+            <h2 class="section-title">Upload. Analyze. Act.</h2>
+            <p class="section-desc mx-auto">
+                Six streamlined steps from vendor onboarding to audit-ready report — no manual cross-referencing, no guesswork.
+            </p>
+        </div>
+        <div class="steps-grid">
+            <div class="step-card reveal">
+                <div class="step-num">1</div>
+                <div class="step-title">Upload Questionnaire</div>
+                <div class="step-desc">Upload the vendor's completed security questionnaire. Our parser extracts every question, response, and section automatically.</div>
+            </div>
+            <div class="step-card reveal">
+                <div class="step-num">2</div>
+                <div class="step-title">Add Security Artifacts</div>
+                <div class="step-desc">Upload SOC reports, ISO certificates, penetration tests, and other evidence. AI chunks, embeds, and indexes each document for retrieval.</div>
+            </div>
+            <div class="step-card reveal">
+                <div class="step-num">3</div>
+                <div class="step-title">AI-Powered Gap Analysis</div>
+                <div class="step-desc">Every vendor response is cross-referenced against artifact evidence, internal policies, and contract obligations to surface real compliance gaps.</div>
+            </div>
+            <div class="step-card reveal">
+                <div class="step-num">4</div>
+                <div class="step-title">Contract Recommendations</div>
+                <div class="step-desc">For each gap, receive tailored contract clause recommendations — new clauses to add and existing clauses to strengthen.</div>
+            </div>
+            <div class="step-card reveal">
+                <div class="step-num">5</div>
+                <div class="step-title">Remedial Action Plans</div>
+                <div class="step-desc">Get step-by-step remediation plans with owners, timelines, and priorities. Route actions to the right teams instantly.</div>
+            </div>
+            <div class="step-card reveal">
+                <div class="step-num">6</div>
+                <div class="step-title">Export & Share</div>
+                <div class="step-desc">Download polished Word and PDF reports with a single click. Send gap summaries via email to vendors using the notification system.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ FEATURES ═══════════ -->
+<section class="section-pad" id="features" style="background:var(--navy-light);">
+    <div class="container-home">
+        <div class="text-center reveal">
+            <div class="section-badge"><i class="bi bi-stars"></i> Capabilities</div>
+            <h2 class="section-title">What Makes It Different</h2>
+            <p class="section-desc mx-auto">
+                Built for precision, speed, and consistency — every feature designed to eliminate risk blind spots.
+            </p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card reveal">
+                <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+                <div class="feature-title">Zero Blind Spots</div>
+                <div class="feature-desc">Every vendor response is evaluated against actual evidence. Unanswered questions are automatically flagged. Nothing slips through the cracks.</div>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon"><i class="bi bi-cpu"></i></div>
+                <div class="feature-title">AI-Driven Gap Analysis</div>
+                <div class="feature-desc">Powered by advanced language models that read, reason, and cross-reference across documents — the way an expert auditor would, but in minutes.</div>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon"><i class="bi bi-file-earmark-check"></i></div>
+                <div class="feature-title">Actionable Output</div>
+                <div class="feature-desc">For every gap identified, get tailored contract clause recommendations and step-by-step remedial action plans with clear ownership.</div>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon"><i class="bi bi-file-pdf"></i></div>
+                <div class="feature-title">Audit-Ready Reports</div>
+                <div class="feature-desc">Download polished Word and PDF reports with a single click, ready for stakeholders, compliance teams, and regulatory audits.</div>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="feature-title">Version Consistency</div>
+                <div class="feature-desc">Run the same assessment twice, get the same results. Deterministic architecture ensures reproducibility across every run.</div>
+            </div>
+            <div class="feature-card reveal">
+                <div class="feature-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                <div class="feature-title">Analytics Dashboard</div>
+                <div class="feature-desc">Track vendor risk trends, gap distributions, and remediation progress across all assessments with interactive charts and metrics.</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ PLATFORM PREVIEW ═══════════ -->
+<section class="section-pad terminal-section" id="preview">
+    <div class="container-home">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-7 reveal">
+                <div class="terminal-wrap">
+                    <div class="terminal-bar">
+                        <span class="terminal-dot r"></span>
+                        <span class="terminal-dot y"></span>
+                        <span class="terminal-dot g"></span>
+                        <span class="terminal-title">tprm-ai — assessment pipeline</span>
+                    </div>
+                    <div class="terminal-body" id="terminalBody">
+                        <!-- Typewriter lines injected by JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5 reveal">
+                <div class="section-badge"><i class="bi bi-terminal"></i> Live Pipeline</div>
+                <h2 class="section-title" style="font-size:1.8rem">See the AI<br>in Action</h2>
+                <p class="section-desc" style="max-width:100%">
+                    Watch a simulated assessment run — from document parsing through gap identification to final report generation.
+                </p>
+                <div class="proof-points">
+                    <div class="proof-item">
+                        <div class="proof-icon"><i class="bi bi-check2"></i></div>
+                        <div class="proof-text"><strong>RAG-powered evidence retrieval</strong> — every claim matched against source documents</div>
+                    </div>
+                    <div class="proof-item">
+                        <div class="proof-icon"><i class="bi bi-check2"></i></div>
+                        <div class="proof-text"><strong>Section-batched analysis</strong> — no question skipped, every section gets focused attention</div>
+                    </div>
+                    <div class="proof-item">
+                        <div class="proof-icon"><i class="bi bi-check2"></i></div>
+                        <div class="proof-text"><strong>Deterministic dedup</strong> — stable output across runs with semantic similarity checks</div>
+                    </div>
+                    <div class="proof-item">
+                        <div class="proof-icon"><i class="bi bi-check2"></i></div>
+                        <div class="proof-text"><strong>3-pass LLM judge</strong> — refines severity and wording for audit-grade precision</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ CTA BANNER ═══════════ -->
+<section class="section-pad">
+    <div class="container-home reveal">
+        <div class="cta-banner">
+            <h2>Ready to Transform Vendor Risk Assessment?</h2>
+            <p>Start your first AI-powered assessment in under five minutes.</p>
+            <a href="/" class="btn-hero-primary" style="position:relative">
+                <i class="bi bi-rocket-takeoff-fill"></i> Launch TPRM AI
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer class="home-footer">
+    <div class="container-home">
+        <div class="footer-brand">
+            <img src="/static/img/titan-logo.png" alt="Titan">
+            <span style="font-weight:700; font-size:.95rem;">TPRM AI</span>
+        </div>
+        <div class="footer-text">
+            &copy; 2024–2026 Titan Company Limited&ensp;·&ensp;A Titan Company Initiative&ensp;·&ensp;Internal Use Only
+        </div>
+    </div>
+</footer>
+
+<!-- ═══════════ SCRIPTS ═══════════ -->
+<script>
+(function() {
+    'use strict';
+
+    // ── Scroll reveal ──────────────────────────────────────
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+    reveals.forEach(function(el) { observer.observe(el); });
+
+    // ── Nav scroll effect ──────────────────────────────────
+    var nav = document.getElementById('homeNav');
+    window.addEventListener('scroll', function() {
+        nav.classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    // ── Counter animation ──────────────────────────────────
+    var counters = document.querySelectorAll('.stat-num');
+    var counterDone = new Set();
+    var counterObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (!entry.isIntersecting || counterDone.has(entry.target)) return;
+            counterDone.add(entry.target);
+            var el = entry.target;
+            var target = parseInt(el.dataset.target, 10);
+            var suffix = el.dataset.suffix || '';
+            var duration = 1800;
+            var start = performance.now();
+            function tick(now) {
+                var progress = Math.min((now - start) / duration, 1);
+                var eased = 1 - Math.pow(1 - progress, 3);
+                el.textContent = Math.round(eased * target) + suffix;
+                if (progress < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        });
+    }, { threshold: 0.5 });
+    counters.forEach(function(c) { counterObserver.observe(c); });
+
+    // ── Terminal typewriter ─────────────────────────────────
+    var termLines = [
+        { text: '$ tprm assess --vendor "Acme Corp"', cls: 'cmd' },
+        { text: '  ▸ Parsing questionnaire ... 142 questions extracted', cls: '' },
+        { text: '  ▸ Processing 8 security artifacts ...', cls: '' },
+        { text: '  ▸ Embedding 1,247 chunks into vector store', cls: 'dim' },
+        { text: '  ▸ RAG search: matching questions vs evidence (top_k=5)', cls: 'dim' },
+        { text: '  ▸ Running gap analysis [Batch 1/3] ... 12 gaps found', cls: 'warn' },
+        { text: '  ▸ Running gap analysis [Batch 2/3] ... 9 gaps found', cls: 'warn' },
+        { text: '  ▸ Running gap analysis [Batch 3/3] ... 7 gaps found', cls: 'warn' },
+        { text: '  ▸ Deterministic dedup: 28 → 24 unique gaps', cls: '' },
+        { text: '  ▸ Semantic dedup (0.85 threshold): 24 → 22 gaps', cls: '' },
+        { text: '  ▸ 3-pass LLM judge: refining severity & wording ...', cls: 'hi' },
+        { text: '  ▸ Generating contract recommendations ... 18 clauses', cls: '' },
+        { text: '  ▸ Building remedial action plans ... 22 actions', cls: '' },
+        { text: '', cls: '' },
+        { text: '  ✓ Assessment complete — 22 gaps, 18 recommendations', cls: 'ok' },
+        { text: '  ✓ Reports ready: DOCX + PDF exported', cls: 'ok' },
+    ];
+    var termBody = document.getElementById('terminalBody');
+    var termIdx = 0, termTimer = null;
+    var termStarted = false;
+
+    function typeNextLine() {
+        if (termIdx >= termLines.length) {
+            var cursorSpan = document.createElement('span');
+            cursorSpan.className = 'cursor-blink';
+            termBody.appendChild(cursorSpan);
+            return;
+        }
+        var line = termLines[termIdx];
+        var div = document.createElement('div');
+        if (line.cls) div.className = line.cls;
+        termBody.appendChild(div);
+        var text = line.text;
+        var charIdx = 0;
+        function typeChar() {
+            if (charIdx < text.length) {
+                div.textContent += text[charIdx];
+                charIdx++;
+                setTimeout(typeChar, 12 + Math.random() * 8);
+            } else {
+                termIdx++;
+                var delay = text === '' ? 100 : 200 + Math.random() * 300;
+                termTimer = setTimeout(typeNextLine, delay);
+            }
+        }
+        typeChar();
+    }
+
+    var termObserver = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting && !termStarted) {
+            termStarted = true;
+            setTimeout(typeNextLine, 600);
+        }
+    }, { threshold: 0.3 });
+    termObserver.observe(termBody);
+
+    // ── Smooth scroll for anchor links ──────────────────────
+    document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+        a.addEventListener('click', function(e) {
+            var target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+    });
+})();
+</script>
+</body>
+</html>

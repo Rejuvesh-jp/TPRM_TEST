@@ -135,7 +135,7 @@ async def sso_callback(
     user_agent = request.headers.get("user-agent", "Unknown")
     _log_login_activity(email, name, True, ip_address, user_agent)
 
-    response = RedirectResponse(url="/", status_code=302)
+    response = RedirectResponse(url="/home", status_code=302)
     response.set_cookie(
         "session_token", token,
         httponly=True, samesite="lax",

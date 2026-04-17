@@ -5,28 +5,33 @@
 
 {% block head %}
 <style>
-/* Status legend */
-.status-legend { display:flex; flex-direction:column; gap:.75rem; padding:.5rem 0; }
-.sleg-item     { display:flex; align-items:center; gap:.65rem; }
-.sleg-dot      { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
-.sleg-label    { font-size:.8rem; color:var(--text-secondary); line-height:1.2; }
-.sleg-count    { margin-left:auto; font-weight:700; font-size:1rem; color:var(--text-primary); }
-.sleg-pct      { font-size:.7rem; color:var(--text-muted); }
-.sleg-divider  { border-top:1px solid var(--border-color); padding-top:.6rem; margin-top:.1rem; }
-.sleg-total-row{ display:flex; justify-content:space-between; align-items:center; }
-.sleg-total-lbl{ font-size:.75rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; }
-.sleg-total-val{ font-weight:800; font-size:1.1rem; color:var(--text-primary); }
+/* Status donut card */
+.status-donut-wrap { position:relative; width:210px; height:210px; margin:0 auto; }
+.status-donut-wrap canvas { width:210px !important; height:210px !important; }
+.status-dc { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; line-height:1; }
+.status-dc-v { font-size:2.4rem; font-weight:800; color:var(--text-primary); }
+.status-dc-l { font-size:.68rem; color:var(--text-muted); margin-top:3px; letter-spacing:.03em; text-transform:uppercase; }
+/* legend grid below donut */
+.status-legend { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; margin-top:1.2rem; }
+.sleg-item { display:flex; flex-direction:column; align-items:center; gap:.3rem; background:var(--glass-bg,#fff); border:1px solid var(--border-color,#e2e8f0); border-radius:.75rem; padding:.7rem .4rem; transition:transform .15s; }
+.sleg-item:hover { transform:translateY(-2px); }
+.sleg-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.sleg-count{ font-weight:800; font-size:1.35rem; color:var(--text-primary); line-height:1; }
+.sleg-label{ font-size:.72rem; color:var(--text-muted); text-align:center; }
+.sleg-pct  { font-size:.66rem; font-weight:600; padding:.1rem .45rem; border-radius:999px; }
+/* totals strip */
+.status-totals { display:flex; justify-content:space-around; border-top:1px solid var(--border-color); margin-top:.9rem; padding-top:.75rem; }
+.sttl-item { text-align:center; }
+.sttl-val  { font-size:1.1rem; font-weight:800; color:var(--text-primary); }
+.sttl-lbl  { font-size:.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
 /* chart wrappers */
-.chart-donut-sm { position:relative; width:100%; max-width:160px; margin:0 auto; }
-.chart-donut-sm .dc { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; line-height:1; }
-.chart-donut-sm .dc-v { font-size:1.65rem; font-weight:800; color:var(--text-primary); }
-.chart-donut-sm .dc-l { font-size:.65rem; color:var(--text-muted); margin-top:2px; }
 .chart-bar-wrap  { position:relative; width:100%; height:230px; }
+.chart-bar-fill  { position:relative; width:100%; flex:1; min-height:160px; }
 .chart-line-wrap { position:relative; width:100%; height:200px; }
 /* filter bar */
 .dash-filter { background:var(--glass-bg,#fff); border:1px solid var(--border-color,#e2e8f0); border-radius:.5rem; font-size:.82rem; }
-.dash-filter:focus { box-shadow:0 0 0 3px rgba(79,70,229,.15); border-color:#4f46e5; }
-.filter-chip { display:inline-flex; align-items:center; gap:.35rem; font-size:.75rem; padding:.25rem .6rem; border-radius:999px; background:rgba(79,70,229,.1); color:#4f46e5; font-weight:500; }
+.dash-filter:focus { box-shadow:0 0 0 3px rgba(0,184,151,.15); border-color:#00b897; }
+.filter-chip { display:inline-flex; align-items:center; gap:.35rem; font-size:.75rem; padding:.25rem .6rem; border-radius:999px; background:rgba(0,184,151,.1); color:#00b897; font-weight:500; }
 </style>
 {% endblock %}
 
@@ -43,53 +48,50 @@
                 <h6 class="mb-0"><i class="bi bi-pie-chart-fill me-2"></i>Assessment Status</h6>
             </div>
             <div class="glass-card-body">
-                <div class="row align-items-center g-0">
-                    <div class="col-5">
-                        <div class="chart-donut-sm">
-                            <canvas id="chart-status"></canvas>
-                            <div class="dc">
-                                <div class="dc-v">{{ unique_vendors }}</div>
-                                <div class="dc-l">Vendors</div>
-                            </div>
-                        </div>
+                <!-- Big donut -->
+                <div class="status-donut-wrap">
+                    <canvas id="chart-status"></canvas>
+                    <div class="status-dc">
+                        <div class="status-dc-v">{{ total }}</div>
+                        <div class="status-dc-l">Total</div>
                     </div>
-                    <div class="col-7 ps-3">
-                        <div class="status-legend">
-                            <div class="sleg-item">
-                                <span class="sleg-dot" style="background:#4f46e5"></span>
-                                <div>
-                                    <div class="sleg-label">Completed</div>
-                                    {% if total > 0 %}<div class="sleg-pct">{{ ((completed/total)*100)|round|int }}% of total</div>{% endif %}
-                                </div>
-                                <span class="sleg-count">{{ completed }}</span>
-                            </div>
-                            <div class="sleg-item">
-                                <span class="sleg-dot" style="background:#f59e0b"></span>
-                                <div>
-                                    <div class="sleg-label">In Progress</div>
-                                    {% if total > 0 %}<div class="sleg-pct">{{ (((running+pending)/total)*100)|round|int }}% of total</div>{% endif %}
-                                </div>
-                                <span class="sleg-count">{{ running + pending }}</span>
-                            </div>
-                            <div class="sleg-item">
-                                <span class="sleg-dot" style="background:#ef4444"></span>
-                                <div>
-                                    <div class="sleg-label">Failed</div>
-                                    {% if total > 0 %}<div class="sleg-pct">{{ ((failed/total)*100)|round|int }}% of total</div>{% endif %}
-                                </div>
-                                <span class="sleg-count">{{ failed }}</span>
-                            </div>
-                            <div class="sleg-divider">
-                                <div class="sleg-total-row">
-                                    <span class="sleg-total-lbl">Unique Vendors</span>
-                                    <span class="sleg-total-val" style="color:var(--accent)">{{ unique_vendors }}</span>
-                                </div>
-                                <div class="sleg-total-row mt-1">
-                                    <span class="sleg-total-lbl">Total Assessments</span>
-                                    <span class="sleg-total-val">{{ total }}</span>
-                                </div>
-                            </div>
-                        </div>
+                </div>
+                <!-- Legend grid -->
+                <div class="status-legend">
+                    <div class="sleg-item">
+                        <span class="sleg-dot" style="background:#00b897"></span>
+                        <span class="sleg-count">{{ completed }}</span>
+                        <span class="sleg-label">Completed</span>
+                        {% if total > 0 %}
+                        <span class="sleg-pct" style="background:rgba(0,184,151,.12);color:#00b897">{{ ((completed/total)*100)|round|int }}%</span>
+                        {% endif %}
+                    </div>
+                    <div class="sleg-item">
+                        <span class="sleg-dot" style="background:#f59e0b"></span>
+                        <span class="sleg-count">{{ running + pending }}</span>
+                        <span class="sleg-label">In Progress</span>
+                        {% if total > 0 %}
+                        <span class="sleg-pct" style="background:rgba(245,158,11,.12);color:#f59e0b">{{ (((running+pending)/total)*100)|round|int }}%</span>
+                        {% endif %}
+                    </div>
+                    <div class="sleg-item">
+                        <span class="sleg-dot" style="background:#ef4444"></span>
+                        <span class="sleg-count">{{ failed }}</span>
+                        <span class="sleg-label">Failed</span>
+                        {% if total > 0 %}
+                        <span class="sleg-pct" style="background:rgba(239,68,68,.12);color:#ef4444">{{ ((failed/total)*100)|round|int }}%</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <!-- Totals strip -->
+                <div class="status-totals">
+                    <div class="sttl-item">
+                        <div class="sttl-val" style="color:var(--accent)">{{ unique_vendors }}</div>
+                        <div class="sttl-lbl">Unique Vendors</div>
+                    </div>
+                    <div class="sttl-item">
+                        <div class="sttl-val">{{ total }}</div>
+                        <div class="sttl-lbl">Assessments</div>
                     </div>
                 </div>
             </div>
@@ -98,17 +100,17 @@
 
     <!-- Chart 3: Top Vendors by Gaps -->
     <div class="col-xl-8 col-lg-7 fade-in" style="animation-delay:.10s">
-        <div class="glass-card h-100">
+        <div class="glass-card h-100 d-flex flex-column">
             <div class="glass-card-header">
                 <h6 class="mb-0"><i class="bi bi-bar-chart-horizontal-fill me-2"></i>Top Vendors by Gaps</h6>
             </div>
-            <div class="glass-card-body">
+            <div class="glass-card-body flex-grow-1 d-flex flex-column">
                 {% if chart_vendors %}
-                <div class="chart-bar-wrap">
+                <div class="chart-bar-fill">
                     <canvas id="chart-vendors"></canvas>
                 </div>
                 {% else %}
-                <div class="d-flex align-items-center justify-content-center text-muted small" style="height:230px">No completed assessments yet</div>
+                <div class="d-flex align-items-center justify-content-center text-muted small flex-grow-1">No completed assessments yet</div>
                 {% endif %}
             </div>
         </div>
@@ -317,166 +319,183 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <script>
+/* ── Theme detection ─────────────────────────────────────────── */
+const _dark   = document.documentElement.getAttribute('data-theme') === 'dark';
+const _txt    = _dark ? '#a0a8b8' : '#64748b';
+const _grid   = _dark ? 'rgba(255,255,255,0.045)' : 'rgba(15,31,51,0.065)';
+const _ptBdr  = _dark ? '#18181c' : '#ffffff';
+const TTP = {
+    backgroundColor: _dark ? '#1c1c22' : '#ffffff',
+    borderColor:     _dark ? '#2a2a32' : '#e0e6ed',
+    borderWidth: 1,
+    titleColor:  _dark ? '#eef0f4' : '#1a2332',
+    bodyColor:   _dark ? '#a0a8b8' : '#4b5c6e',
+    padding: 12, cornerRadius: 10,
+    titleFont: { weight: '600', size: 12 },
+    bodyFont:  { size: 11 },
+    displayColors: true, boxPadding: 5,
+};
+
 Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-Chart.defaults.color = '#64748b';
+Chart.defaults.color = _txt;
 
-const VENDOR_PALETTE = [
-    '#4f46e5','#10b981','#f59e0b','#ef4444',
-    '#8b5cf6','#06b6d4','#ec4899','#84cc16'
-];
+const VENDOR_PALETTE = ['#00b897','#10b981','#f59e0b','#ef4444','#3b82f6','#06b6d4','#ec4899','#84cc16'];
 
-// ── Chart 1: Status Donut ────────────────────────────────────────
+/* gradient helpers */
+function lineGrad(chart, col) {
+    const {ctx, chartArea} = chart;
+    if (!chartArea) return col + '25';
+    const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    g.addColorStop(0,   col + '60');
+    g.addColorStop(0.6, col + '18');
+    g.addColorStop(1,   col + '00');
+    return g;
+}
+function hBarGrad(chart, col) {
+    const {ctx, chartArea} = chart;
+    if (!chartArea) return col + 'cc';
+    const g = ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+    g.addColorStop(0, col + 'ff');
+    g.addColorStop(1, col + '88');
+    return g;
+}
+
+/* ── Chart 1: Status Donut ─────────────────────────────────── */
 (function () {
-    const ctx = document.getElementById('chart-status');
-    if (!ctx) return;
+    const el = document.getElementById('chart-status');
+    if (!el) return;
     const completed  = {{ completed }};
     const inProgress = {{ running + pending }};
     const failed     = {{ failed }};
     const total      = {{ total }};
-    new Chart(ctx, {
+
+    new Chart(el, {
         type: 'doughnut',
         data: {
             labels: ['Completed', 'In Progress', 'Failed'],
             datasets: [{
                 data: [completed, inProgress, failed],
-                backgroundColor: ['#4f46e5', '#f59e0b', '#ef4444'],
-                borderWidth: 0,
-                hoverOffset: 8,
-                hoverBorderWidth: 2,
-                hoverBorderColor: '#fff',
+                backgroundColor: ['#00b897','#f59e0b','#ef4444'],
+                hoverBackgroundColor: ['#00d4aa','#fbbf24','#f87171'],
+                borderWidth: 4,
+                borderColor: _ptBdr,
+                hoverOffset: 18,
             }]
         },
         options: {
-            cutout: '76%',
-            responsive: true,
-            maintainAspectRatio: true,
+            cutout: '74%',
+            animation: { animateRotate: true, animateScale: false, duration: 1000, easing: 'easeOutQuart' },
+            responsive: false, maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: c => {
-                            const pct = total ? Math.round((c.parsed / total) * 100) : 0;
-                            return ` ${c.label}: ${c.parsed} (${pct}%)`;
-                        }
+                tooltip: { ...TTP, callbacks: {
+                    label: c => {
+                        const pct = total ? Math.round((c.parsed / total) * 100) : 0;
+                        return `  ${c.label}: ${c.parsed} (${pct}%)`;
                     }
-                }
+                }}
             }
         }
     });
 })();
 
-// ── Chart 3: Top Vendors Horizontal Bar (per-vendor colors + month) ──
+/* ── Chart 3: Top Vendors — Horizontal Gradient Bars ───────── */
 (function () {
-    const ctx = document.getElementById('chart-vendors');
-    if (!ctx) return;
+    const el = document.getElementById('chart-vendors');
+    if (!el) return;
     const vendors = {{ chart_vendors | tojson }};
     if (!vendors.length) return;
     const colors = vendors.map((_, i) => VENDOR_PALETTE[i % VENDOR_PALETTE.length]);
-    new Chart(ctx, {
+
+    const chart = new Chart(el, {
         type: 'bar',
         data: {
-            labels: vendors.map(v => {
-                const name = v.name.length > 22 ? v.name.slice(0, 21) + '\u2026' : v.name;
-                return v.month ? `${name}  ·  ${v.month}` : name;
-            }),
+            labels: vendors.map(v => v.name.length > 26 ? v.name.slice(0, 25) + '\u2026' : v.name),
             datasets: [{
                 label: 'Gaps',
                 data: vendors.map(v => v.gaps),
-                backgroundColor: colors.map(c => c + 'cc'),
-                borderColor: colors,
-                borderWidth: 1.5,
-                borderRadius: 5,
+                backgroundColor: c2 => hBarGrad(c2.chart, colors[c2.dataIndex % colors.length]),
+                borderWidth: 0,
+                borderRadius: 6,
+                borderSkipped: 'start',
                 barThickness: 22,
             }]
         },
         options: {
             indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 1000, easing: 'easeOutQuart',
+                delay: c2 => c2.type === 'data' ? (c2.dataIndex || 0) * 80 : 0 },
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        title: items => vendors[items[0].dataIndex].name,
-                        label: c => ` ${c.parsed.x} gaps  ·  Assessed ${vendors[c.dataIndex].month || 'N/A'}`,
-                    }
-                }
+                tooltip: { ...TTP, callbacks: {
+                    title: items => vendors[items[0].dataIndex].name,
+                    label: c => `  ${c.parsed.x} gaps  ·  ${vendors[c.dataIndex].month || 'N/A'}`,
+                }}
             },
             scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
-                    grid: { color: '#e2e8f040' }
-                },
-                y: {
-                    grid: { display: false },
-                    ticks: { font: { size: 11 } }
-                }
+                x: { beginAtZero: true, border: { display: false },
+                    ticks: { stepSize: 1, precision: 0, font: { size: 11 }, color: _txt },
+                    grid: { color: _grid } },
+                y: { grid: { display: false }, border: { display: false },
+                    ticks: { font: { size: 11 }, color: _txt } }
+            },
+            onClick: (evt, elements) => {
+                if (!elements.length) return;
+                const v = vendors[elements[0].index];
+                if (v && v.id) window.location.href = `/assessments/${v.id}`;
             }
         }
     });
+    el.style.cursor = 'pointer';
 })();
 
-// ── Chart 4: Monthly Trend Line ───────────────────────────────────
+/* ── Chart 4: Monthly Trend — Gradient Area Line ───────────── */
 (function () {
-    const ctx = document.getElementById('chart-monthly');
-    if (!ctx) return;
+    const el = document.getElementById('chart-monthly');
+    if (!el) return;
     const monthly = {{ chart_monthly | tojson }};
-    const hasData = monthly.some(m => m.count > 0);
-    new Chart(ctx, {
+
+    new Chart(el, {
         type: 'line',
         data: {
             labels: monthly.map(m => m.label),
             datasets: [{
                 label: 'Assessments',
                 data: monthly.map(m => m.count),
-                borderColor: '#4f46e5',
-                backgroundColor: (ctx2) => {
-                    const chart = ctx2.chart;
-                    const {ctx: c, chartArea} = chart;
-                    if (!chartArea) return '#4f46e518';
-                    const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                    gradient.addColorStop(0, '#4f46e533');
-                    gradient.addColorStop(1, '#4f46e502');
-                    return gradient;
-                },
-                fill: true,
-                tension: 0.45,
-                pointRadius: 5,
-                pointHoverRadius: 8,
-                pointBackgroundColor: '#4f46e5',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
+                borderColor: '#00b897',
+                backgroundColor: c2 => lineGrad(c2.chart, '#00b897'),
+                fill: true, tension: 0.42,
+                pointRadius: 5, pointHoverRadius: 9,
+                pointBackgroundColor: '#00b897',
+                pointBorderColor: _ptBdr, pointBorderWidth: 2.5,
+                pointHoverBackgroundColor: '#00d4aa',
+                pointHoverBorderColor: _ptBdr, pointHoverBorderWidth: 3,
                 borderWidth: 2.5,
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 1200, easing: 'easeInOutCubic' },
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: c => ` ${c.parsed.y} assessment${c.parsed.y !== 1 ? 's' : ''}`
-                    }
-                }
+                tooltip: { ...TTP, callbacks: {
+                    label: c => `  ${c.parsed.y} assessment${c.parsed.y !== 1 ? 's' : ''}`
+                }}
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1, precision: 0, font: { size: 11 } },
-                    grid: { color: '#e2e8f040' }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 11 }, maxRotation: 30 }
-                }
+                y: { beginAtZero: true, border: { display: false },
+                    ticks: { stepSize: 1, precision: 0, font: { size: 11 }, color: _txt },
+                    grid: { color: _grid } },
+                x: { grid: { display: false }, border: { display: false },
+                    ticks: { font: { size: 11 }, maxRotation: 30, color: _txt } }
             }
         }
     });
 })();
 
+/* ── Retry Assessment ──────────────────────────────────────── */
 async function retryAssessment(id) {
     if (!confirm('Retry the pipeline for this assessment? It will re-run from the beginning.')) return;
     const resp = await fetch(`/api/assessments/${id}/run`, { method: 'POST', credentials: 'same-origin' });
@@ -484,55 +503,44 @@ async function retryAssessment(id) {
     window.location.href = `/assessments/${id}`;
 }
 
-// ── Dashboard Filters ─────────────────────────────────────────────
+/* ── Dashboard Filters ─────────────────────────────────────── */
 (function () {
-    const rows = Array.from(document.querySelectorAll('#dash-tbody tr'));
+    const rows  = Array.from(document.querySelectorAll('#dash-tbody tr'));
     const total = rows.length;
 
     window.applyDashFilters = function () {
-        const div  = (document.getElementById('f-division')?.value  || '').trim();
-        const eng  = (document.getElementById('f-engagement')?.value || '').trim().toLowerCase();
-        const risk = (document.getElementById('f-risk')?.value       || '').trim().toLowerCase();
-        const search = (document.getElementById('f-search')?.value   || '').trim().toLowerCase();
-
+        const div    = (document.getElementById('f-division')?.value   || '').trim();
+        const eng    = (document.getElementById('f-engagement')?.value || '').trim().toLowerCase();
+        const risk   = (document.getElementById('f-risk')?.value       || '').trim().toLowerCase();
+        const search = (document.getElementById('f-search')?.value     || '').trim().toLowerCase();
         let shown = 0;
         rows.forEach(row => {
-            const matchFilters =
-                (!div  || row.dataset.division  === div)  &&
-                (!eng  || (row.dataset.engagement  || '').toLowerCase() === eng)  &&
-                (!risk || (row.dataset.risk         || '').toLowerCase() === risk);
-            const matchSearch = !search || row.textContent.toLowerCase().includes(search);
-            const match = matchFilters && matchSearch;
-            row.style.display = match ? '' : 'none';
-            if (match) shown++;
+            const matchF =
+                (!div  || row.dataset.division === div) &&
+                (!eng  || (row.dataset.engagement || '').toLowerCase() === eng) &&
+                (!risk || (row.dataset.risk       || '').toLowerCase() === risk);
+            const matchS = !search || row.textContent.toLowerCase().includes(search);
+            const show = matchF && matchS;
+            row.style.display = show ? '' : 'none';
+            if (show) shown++;
         });
-
-        // Update count text
-        const countEl = document.getElementById('filter-count');
-        if (countEl) countEl.textContent = `${shown} of ${total} assessment${total !== 1 ? 's' : ''}`;
-
-        // Update badge
-        const badge = document.getElementById('dash-count-badge');
-        if (badge) badge.textContent = shown;
-
-        // Clear button visibility
+        const countEl  = document.getElementById('filter-count');
+        const badge    = document.getElementById('dash-count-badge');
         const clearBtn = document.getElementById('clear-filters-btn');
+        const noRes    = document.getElementById('dash-no-results');
+        if (countEl)  countEl.textContent  = `${shown} of ${total} assessment${total !== 1 ? 's' : ''}`;
+        if (badge)    badge.textContent    = shown;
         if (clearBtn) clearBtn.style.display = (div || eng || risk || search) ? '' : 'none';
-
-        // No-results message
-        const noRes = document.getElementById('dash-no-results');
-        if (noRes) noRes.style.display = (shown === 0 && total > 0) ? '' : 'none';
+        if (noRes)    noRes.style.display    = (shown === 0 && total > 0) ? '' : 'none';
     };
 
     window.clearDashFilters = function () {
-        ['f-division', 'f-engagement', 'f-risk', 'f-search'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
+        ['f-division','f-engagement','f-risk','f-search'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = '';
         });
         window.applyDashFilters();
     };
 
-    // Initialize popovers for pre-assessment score breakdown
     document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
         new bootstrap.Popover(el, { sanitize: false });
     });

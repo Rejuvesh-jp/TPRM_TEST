@@ -47,6 +47,13 @@ def _require(request: Request):
 
 # ── Login / Logout ───────────────────────────────────────
 
+@router.get("/home", response_class=HTMLResponse)
+async def home_page(request: Request):
+    """Landing page — shown to all users (logged in or not)."""
+    user = get_session(request)
+    return templates.TemplateResponse("home.html", {"request": request, "user": user})
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Show login form."""
@@ -89,7 +96,7 @@ async def login_submit(request: Request,
             "email": email,
         })
     token = create_session(user)
-    response = RedirectResponse(url="/", status_code=302)
+    response = RedirectResponse(url="/home", status_code=302)
     # secure=True when served over HTTPS; False for local HTTP dev (won't break)
     response.set_cookie(
         "session_token", token,

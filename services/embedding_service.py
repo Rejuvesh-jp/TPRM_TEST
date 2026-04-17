@@ -168,8 +168,12 @@ def _get_openai_client():
     if not key:
         raise RuntimeError("OPENAI_API_KEY not set. Add it to .env or environment variables.")
     # verify=True: always validate TLS certificates for the AI gateway.
-    # Set OPENAI_SSL_VERIFY=false only for local dev proxies with self-signed certs.
-    _ssl_verify = os.getenv("OPENAI_SSL_VERIFY", "true").lower() != "false"
+    # Disable via OPENAI_SSL_VERIFY=false or TPRM_SSL_VERIFY=false (corporate proxy / dev only).
+    _ssl_false = {"false", "0", "no"}
+    _ssl_verify = (
+        os.getenv("OPENAI_SSL_VERIFY", "true").lower() not in _ssl_false
+        and os.getenv("TPRM_SSL_VERIFY", "true").lower() not in _ssl_false
+    )
     _openai_client = OpenAI(api_key=key, http_client=httpx.Client(verify=_ssl_verify), base_url="https://ai.titan.in/gateway")
     return _openai_client
 
