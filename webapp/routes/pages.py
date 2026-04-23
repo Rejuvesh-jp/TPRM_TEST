@@ -9,14 +9,14 @@ from collections import Counter, defaultdict
 from datetime import datetime as _dt
 from pathlib import Path
 
-from fastapi import APIRouter, Request, HTTPException, Form as FastForm
+from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from webapp import db_storage as storage
 from webapp.auth import (
-    validate_credentials, create_session, get_session,
-    destroy_session, require_auth, login_redirect, get_auth_error,
+    get_session,
+    destroy_session, require_auth, login_redirect,
 )
 from webapp.config import DEBUG
 from webapp.limiter import limiter
@@ -80,31 +80,6 @@ async def debug_session_page(request: Request):
     if not user:
         return login_redirect()
     return templates.TemplateResponse("debug_session.html", {"request": request})
-
-
-@router.post("/login", response_class=HTMLResponse)
-@limiter.limit("5/minute")
-async def login_submit(request: Request,
-                       email: str = FastForm(...),
-                       password: str = FastForm(...)):
-    """Handle login form submission."""
-    user = validate_credentials(email, password, request)
-    if not user:
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "error": get_auth_error(email),
-            "email": email,
-        })
-    token = create_session(user)
-    response = RedirectResponse(url="/home", status_code=302)
-    # secure=True when served over HTTPS; False for local HTTP dev (won't break)
-    response.set_cookie(
-        "session_token", token,
-        httponly=True,
-        samesite="lax",
-        secure=request.url.scheme == "https",
-    )
-    return response
 
 
 @router.get("/logout")

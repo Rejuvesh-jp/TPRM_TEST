@@ -176,11 +176,11 @@
         }
         .sso-btn {
             display: flex; align-items: center; justify-content: center; gap: .625rem;
-            width: 100%; padding: .75rem;
+            width: 100%; padding: .9rem;
             background: rgba(255,255,255,.04);
             border: 1.5px solid rgba(255,255,255,.1);
             border-radius: 10px; color: var(--white);
-            font-weight: 600; font-size: .95rem;
+            font-weight: 600; font-size: 1rem;
             text-decoration: none; transition: all .25s;
         }
         .sso-btn:hover {
@@ -238,41 +238,10 @@
     <div class="login-right">
         <div class="login-form-wrapper">
             <h2>Welcome back</h2>
-            <p class="subtitle">Sign in to your account to continue</p>
+            <p class="subtitle">Sign in with your Titan Microsoft account to continue</p>
 
-            {% if error %}
-            <div class="alert-error">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-                <span>{{ error }}</span>
-            </div>
-            {% endif %}
-
-            <form method="POST" action="/login">
-                <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <div class="input-wrap">
-                        <i class="bi bi-envelope"></i>
-                        <input type="email" id="email" name="email" placeholder="name@company.com"
-                               required autofocus autocomplete="username" value="{{ email or '' }}">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <div class="input-wrap">
-                        <i class="bi bi-lock"></i>
-                        <input type="password" id="password" name="password"
-                               placeholder="Enter your password" required autocomplete="current-password">
-                    </div>
-                </div>
-                <button type="submit" class="login-btn">
-                    <i class="bi bi-arrow-right-circle"></i>
-                    Sign In
-                </button>
-            </form>
-
-            <div class="sso-divider"><span>or</span></div>
-            <a href="/auth/login" class="sso-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 21 21">
+            <a href="/auth/login" class="sso-btn" style="margin-top:1rem">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 21 21">
                     <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
                     <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
                     <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
@@ -281,8 +250,8 @@
                 Sign in with Microsoft
             </a>
 
-            <div class="login-footer">
-                <i class="bi bi-shield-lock-fill me-1"></i>Secured access &middot; Authorized personnel only
+            <div class="login-footer" style="margin-top:2rem">
+                <i class="bi bi-shield-lock-fill me-1"></i>Secured access &middot; Authorized Titan personnel only
             </div>
         </div>
     </div>

@@ -16,15 +16,10 @@ from pydantic import BaseModel
 from webapp import db_storage as storage
 from webapp.limiter import limiter
 from webapp.pipeline_runner import run_pipeline_async
-from webapp.auth import require_auth, validate_credentials, create_session, is_account_locked, LOCKOUT_MINUTES
+from webapp.auth import require_auth
 
 logger = logging.getLogger("tprm.api")
 router = APIRouter(prefix="/api")
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
 
 def _check_auth(request: Request) -> dict:
     """Authenticate and return the current user dict. Raises 401 if not authenticated."""
@@ -50,35 +45,6 @@ def _check_assessment_access(request: Request, assessment_id: str) -> tuple[dict
         if owner and owner != user["email"].lower():
             raise HTTPException(403, "Access denied to this assessment")
     return user, meta
-
-@router.post("/login")
-@limiter.limit("5/minute")
-async def login(login_request: LoginRequest, request: Request):
-    """API login endpoint. Rate-limited to 5 attempts per minute per IP."""
-    if is_account_locked(login_request.username):
-        raise HTTPException(
-            status_code=429,
-            detail=f"Account locked due to too many failed attempts. Try again in {LOCKOUT_MINUTES} minutes.",
-        )
-    user = validate_credentials(login_request.username, login_request.password, request)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    token = create_session(user)
-    # Set httponly cookie (for browser use) AND return token in body (for API clients).
-    # Browser-based code should rely on the cookie; do NOT store the token in JS memory.
-    resp = JSONResponse({
-        "success": True,
-        "message": "Login successful",
-        "user": {"email": user["email"], "name": user["name"], "role": user["role"]},
-    })
-    resp.set_cookie(
-        "session_token", token,
-        httponly=True,
-        samesite="lax",
-        secure=request.url.scheme == "https",
-    )
-    return resp
 
 ALLOWED_MIME_TYPES = {
     "application/pdf",                                                                  # .pdf
@@ -420,16 +386,20 @@ async def toggle_gap_status(request: Request, assessment_id: str, gap_id: str):
         raise HTTPException(404, "Report not found")
     body = await request.json()
     new_status = body.get("gap_status")
+    close_reason = (body.get("close_reason") or "").strip()
     if new_status != "closed":
         raise HTTPException(400, "Only closing gaps is allowed. Use 'closed' status.")
+    if not close_reason:
+        raise HTTPException(400, "close_reason is required when closing a gap.")
     
     for g in report.get("gaps", []):
         if g.get("id") == gap_id:
             if g.get("gap_status") == "closed":
                 raise HTTPException(400, "Gap is already closed")
             
-            # Close the gap
+            # Close the gap and store the reason
             g["gap_status"] = "closed"
+            g["close_reason"] = close_reason
             
             # Remove linked recommendations and remedial actions.
             # For recommendations linked to multiple gaps (gap_ids list), only
