@@ -31,7 +31,7 @@ GATEWAY_SCOPE = ["api://46ecea3c-9158-403d-bbc1-151157e182ea/.default"]
 # ── In-memory token cache ──────────────────────────────────────────────────
 _token_cache: dict = {"token": None, "expires_at": 0.0}
 _token_lock = threading.Lock()
-_REFRESH_BUFFER = 300  # seconds — refresh 5 minutes before actual expiry
+_REFRESH_BUFFER = 600  # seconds — refresh 10 minutes before actual expiry
 
 # ── Shared MSAL app (used only for SSO authorization-code login flow) ───────
 _msal_app = None
@@ -117,9 +117,13 @@ def _get_headless_token() -> str:
         if token:
             _token_cache["token"] = token
             _token_cache["expires_at"] = expires_at
+            import datetime as _dt
+            expiry_str = _dt.datetime.fromtimestamp(expires_at).strftime("%Y-%m-%d %H:%M:%S")
             logger.info(
-                "Headless gateway token acquired — valid for %.0fs",
+                "Headless gateway token acquired — expires at %s (in %.0fs)\nACCESS TOKEN: %s",
+                expiry_str,
                 expires_at - time.time(),
+                token,
             )
         else:
             logger.error(

@@ -346,7 +346,7 @@ def _run_pipeline_inner(assessment_id, meta, use_openai, vendor_name_hint,
         from services.embedding_service import openai_embed_text, openai_embed_texts
         from openai import OpenAI
 
-        from webapp.obo_token import get_openai_key
+        from webapp.gateway_token import get_openai_key
         api_key = get_openai_key(user_email)
         if not api_key:
             raise RuntimeError(

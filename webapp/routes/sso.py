@@ -34,7 +34,7 @@ def _get_redirect_uri(request: Request) -> str:
     host = request.headers.get("x-forwarded-host", request.headers.get("host", "localhost:8085"))
     return f"{scheme}://{host}/auth/callback"
 from webapp.auth import create_session, destroy_session, _log_login_activity
-from webapp.obo_token import get_shared_msal_app, store_user_token
+from webapp.gateway_token import get_shared_msal_app, store_user_token
 
 logger = logging.getLogger("tprm.sso")
 

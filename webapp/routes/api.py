@@ -644,7 +644,7 @@ async def process_default_documents(request: Request, category: str):
         from services.embedding_service import openai_embed_text
         import httpx
         from openai import OpenAI
-        from webapp.obo_token import get_openai_key
+        from webapp.gateway_token import get_openai_key
         api_key = get_openai_key(user.get("email"))
         if not api_key:
             raise HTTPException(500, "OPENAI_API_KEY not set")
