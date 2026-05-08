@@ -13,7 +13,7 @@
 .status-dc-l { font-size:.68rem; color:var(--text-muted); margin-top:3px; letter-spacing:.03em; text-transform:uppercase; }
 /* legend grid below donut */
 .status-legend { display:grid; grid-template-columns:repeat(3,1fr); gap:.5rem; margin-top:1.2rem; }
-.sleg-item { display:flex; flex-direction:column; align-items:center; gap:.3rem; background:var(--glass-bg,#fff); border:1px solid var(--border-color,#e2e8f0); border-radius:.75rem; padding:.7rem .4rem; transition:transform .15s; }
+.sleg-item { display:flex; flex-direction:column; align-items:center; gap:.3rem; background:var(--bg-subtle,#f8fafc); border:1px solid var(--border-color,#e2e8f0); border-radius:.75rem; padding:.7rem .4rem; transition:transform .15s; }
 .sleg-item:hover { transform:translateY(-2px); }
 .sleg-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 .sleg-count{ font-weight:800; font-size:1.35rem; color:var(--text-primary); line-height:1; }
@@ -206,12 +206,21 @@
                         </select>
                     </div>
                     <div class="col-12 col-sm-auto">
+                        <label class="visually-hidden" for="f-month">Month</label>
+                        <select class="form-select form-select-sm dash-filter" id="f-month" onchange="applyDashFilters()" style="min-width:155px">
+                            <option value="">All Months</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-auto">
                         <button class="btn btn-sm btn-outline-secondary" id="clear-filters-btn" onclick="clearDashFilters()" style="display:none">
                             <i class="bi bi-x-circle me-1"></i>Clear
                         </button>
                     </div>
-                    <div class="col ms-auto text-sm-end">
+                    <div class="col ms-auto text-sm-end d-flex align-items-center justify-content-end gap-2">
                         <small class="text-muted" id="filter-count">{{ assessments|length }} assessment{{ 's' if assessments|length != 1 else '' }}</small>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportTableAsImage()" title="Export visible table as PNG">
+                            <i class="bi bi-download me-1"></i>Export
+                        </button>
                     </div>
                 </div>
                 {% endif %}
@@ -234,7 +243,7 @@
                         </thead>
                         <tbody id="dash-tbody">
                             {% for a in assessments %}
-                            <tr data-division="{{ a.division }}" data-engagement="{{ a.nature_of_engagement }}" data-risk="{{ a.risk_rating }}">
+                            <tr data-division="{{ a.division }}" data-engagement="{{ a.nature_of_engagement }}" data-risk="{{ a.risk_rating }}" data-month="{{ a.created_at[:7] if a.created_at else '' }}">
                                 <td>
                                     <a href="/assessments/{{ a.id }}" class="vendor-link">
                                         <span class="vendor-avatar">{{ a.vendor_name[0] | upper }}</span>
@@ -508,17 +517,36 @@ async function retryAssessment(id) {
     const rows  = Array.from(document.querySelectorAll('#dash-tbody tr'));
     const total = rows.length;
 
+    // Populate month filter from row data
+    (function populateMonthFilter() {
+        const sel = document.getElementById('f-month');
+        if (!sel) return;
+        const months = [...new Set(rows.map(r => r.dataset.month).filter(Boolean))].sort().reverse();
+        months.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            // Format YYYY-MM → "May 2026"
+            try {
+                const [y, mo] = m.split('-');
+                opt.textContent = new Date(+y, +mo - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+            } catch { opt.textContent = m; }
+            sel.appendChild(opt);
+        });
+    })();
+
     window.applyDashFilters = function () {
         const div    = (document.getElementById('f-division')?.value   || '').trim();
         const eng    = (document.getElementById('f-engagement')?.value || '').trim().toLowerCase();
         const risk   = (document.getElementById('f-risk')?.value       || '').trim().toLowerCase();
+        const month  = (document.getElementById('f-month')?.value      || '').trim();
         const search = (document.getElementById('f-search')?.value     || '').trim().toLowerCase();
         let shown = 0;
         rows.forEach(row => {
             const matchF =
-                (!div  || row.dataset.division === div) &&
-                (!eng  || (row.dataset.engagement || '').toLowerCase() === eng) &&
-                (!risk || (row.dataset.risk       || '').toLowerCase() === risk);
+                (!div   || row.dataset.division === div) &&
+                (!eng   || (row.dataset.engagement || '').toLowerCase() === eng) &&
+                (!risk  || (row.dataset.risk       || '').toLowerCase() === risk) &&
+                (!month || row.dataset.month === month);
             const matchS = !search || row.textContent.toLowerCase().includes(search);
             const show = matchF && matchS;
             row.style.display = show ? '' : 'none';
@@ -530,12 +558,12 @@ async function retryAssessment(id) {
         const noRes    = document.getElementById('dash-no-results');
         if (countEl)  countEl.textContent  = `${shown} of ${total} assessment${total !== 1 ? 's' : ''}`;
         if (badge)    badge.textContent    = shown;
-        if (clearBtn) clearBtn.style.display = (div || eng || risk || search) ? '' : 'none';
+        if (clearBtn) clearBtn.style.display = (div || eng || risk || search || month) ? '' : 'none';
         if (noRes)    noRes.style.display    = (shown === 0 && total > 0) ? '' : 'none';
     };
 
     window.clearDashFilters = function () {
-        ['f-division','f-engagement','f-risk','f-search'].forEach(id => {
+        ['f-division','f-engagement','f-risk','f-search','f-month'].forEach(id => {
             const el = document.getElementById(id); if (el) el.value = '';
         });
         window.applyDashFilters();
@@ -545,5 +573,105 @@ async function retryAssessment(id) {
         new bootstrap.Popover(el, { sanitize: false });
     });
 })();
+
+/* ── Export visible table as PNG ───────────────────────────── */
+async function exportTableAsImage() {
+    // Dynamically load html2canvas if not already loaded
+    if (!window.html2canvas) {
+        await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+            s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    // Build a clean off-screen table with only visible rows
+    const tbody = document.getElementById('dash-tbody');
+    const thead = tbody.closest('table').querySelector('thead');
+    const visibleRows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.style.display !== 'none');
+
+    if (!visibleRows.length) { alert('No visible rows to export.'); return; }
+
+    // Active filter label for filename
+    const monthVal = document.getElementById('f-month')?.value || '';
+    const monthOpt = document.getElementById('f-month');
+    const monthLabel = monthVal && monthOpt ? monthOpt.options[monthOpt.selectedIndex].text : '';
+    const divVal  = document.getElementById('f-division')?.value || '';
+    const engVal  = document.getElementById('f-engagement')?.value || '';
+    const riskVal = document.getElementById('f-risk')?.value || '';
+    const parts = [monthLabel, divVal, engVal, riskVal].filter(Boolean);
+    const filterSuffix = parts.length ? '_' + parts.join('_').replace(/\s+/g,'_') : '';
+    const filename = `assessments${filterSuffix}_${new Date().toISOString().slice(0,10)}.png`;
+
+    // Clone table into a styled wrapper
+    const wrap = document.createElement('div');
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    wrap.style.cssText = [
+        'position:fixed', 'left:-9999px', 'top:0', 'padding:20px',
+        'background:' + (isDark ? '#18181c' : '#ffffff'),
+        'font-family:Inter,system-ui,sans-serif',
+        'border-radius:12px',
+    ].join(';');
+
+    // Title
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:15px;font-weight:700;margin-bottom:12px;color:' + (isDark ? '#eef0f4' : '#1a2332');
+    title.textContent = 'Assessments' + (parts.length ? ' — ' + parts.join(' · ') : '') + '  (' + visibleRows.length + ')';
+    wrap.appendChild(title);
+
+    const tbl = document.createElement('table');
+    tbl.style.cssText = 'border-collapse:collapse;width:100%;font-size:12px;color:' + (isDark ? '#a0a8b8' : '#1a2332');
+
+    // Header
+    const thClone = thead.cloneNode(true);
+    thClone.querySelectorAll('th').forEach(th => {
+        th.style.cssText = 'padding:8px 12px;border-bottom:2px solid ' + (isDark ? '#2a2a32' : '#e2e8f0') + ';text-align:left;font-weight:600;font-size:11px;color:' + (isDark ? '#6b7280' : '#64748b') + ';white-space:nowrap';
+    });
+    // Remove last Actions column header
+    const headers = thClone.querySelectorAll('th');
+    if (headers.length) headers[headers.length - 1].remove();
+    tbl.appendChild(thClone);
+
+    // Body — visible rows only, plain text (strip badges/icons to readable text)
+    const tbExport = document.createElement('tbody');
+    visibleRows.forEach((row, idx) => {
+        const tr = document.createElement('tr');
+        tr.style.background = idx % 2 === 0 ? 'transparent' : (isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.025)');
+        const cells = row.querySelectorAll('td');
+        cells.forEach((td, ci) => {
+            if (ci === cells.length - 1) return; // skip Actions column
+            const td2 = document.createElement('td');
+            td2.style.cssText = 'padding:7px 12px;border-bottom:1px solid ' + (isDark ? '#222228' : '#f1f5f9') + ';vertical-align:middle;white-space:nowrap';
+            td2.textContent = td.textContent.trim().replace(/\s+/g,' ');
+            tr.appendChild(td2);
+        });
+        tbExport.appendChild(tr);
+    });
+    tbl.appendChild(tbExport);
+    wrap.appendChild(tbl);
+
+    // Timestamp footer
+    const footer = document.createElement('div');
+    footer.style.cssText = 'font-size:10px;color:' + (isDark ? '#4b5060' : '#94a3b8') + ';margin-top:10px;text-align:right';
+    footer.textContent = 'Exported ' + new Date().toLocaleString();
+    wrap.appendChild(footer);
+
+    document.body.appendChild(wrap);
+
+    try {
+        const canvas = await html2canvas(wrap, {
+            backgroundColor: isDark ? '#18181c' : '#ffffff',
+            scale: 2,
+            useCORS: true,
+        });
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } finally {
+        document.body.removeChild(wrap);
+    }
+}
 </script>
 {% endblock %}

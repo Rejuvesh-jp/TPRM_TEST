@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00b897"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Shield body -->
+  <path d="M22 3 L39 10 L39 24 Q39 35 22 41 Q5 35 5 24 L5 10 Z"
+        fill="url(#g1)" rx="3"/>
+  <!-- Inner shield highlight -->
+  <path d="M22 8 L34 13 L34 24 Q34 31 22 36 Q10 31 10 24 L10 13 Z"
+        fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>
+  <!-- Neural network nodes -->
+  <circle cx="22" cy="18" r="3.2" fill="white" opacity="0.95" filter="url(#glow)"/>
+  <circle cx="15" cy="25" r="2.2" fill="white" opacity="0.85"/>
+  <circle cx="29" cy="25" r="2.2" fill="white" opacity="0.85"/>
+  <circle cx="22" cy="31" r="2" fill="white" opacity="0.75"/>
+  <!-- Connector lines -->
+  <line x1="22" y1="18" x2="15" y2="25" stroke="white" stroke-width="1.4" opacity="0.55"/>
+  <line x1="22" y1="18" x2="29" y2="25" stroke="white" stroke-width="1.4" opacity="0.55"/>
+  <line x1="15" y1="25" x2="22" y2="31" stroke="white" stroke-width="1.4" opacity="0.45"/>
+  <line x1="29" y1="25" x2="22" y2="31" stroke="white" stroke-width="1.4" opacity="0.45"/>
+  <line x1="15" y1="25" x2="29" y2="25" stroke="white" stroke-width="1.4" opacity="0.35"/>
+</svg>

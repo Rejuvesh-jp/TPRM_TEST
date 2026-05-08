@@ -272,12 +272,6 @@ async function setRiskRating(rating) {
             </div>
             <div class="col">
                 <div class="border rounded p-3 h-100">
-                    <div class="text-muted small mb-1">Mode</div>
-                    <div class="fw-bold fs-4">{{ report.pipeline_mode | upper }}</div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="border rounded p-3 h-100">
                     <div class="text-muted small mb-1">
                         LLM Judge
                         {% if report.llm_judge_ran %}
