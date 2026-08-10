@@ -426,7 +426,7 @@ def _run_pipeline_inner(assessment_id, meta, use_openai, vendor_name_hint,
                             {"role": "user", "content": prompt},
                         ],
                         temperature=0,
-                        max_tokens=16384,
+                        max_tokens=32768,
                         seed=42,
                         response_format={"type": "json_object"},
                     )
