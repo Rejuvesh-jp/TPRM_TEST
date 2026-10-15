@@ -2,37 +2,107 @@
 Web App Configuration
 =====================
 """
-import os
-from pathlib import Path
-from dotenv import load_dotenv
 
+import os
+import secrets as _secrets
+from pathlib import Path
+from typing import Literal
+
+from dotenv import load_dotenv
+from azure.core.exceptions import ResourceNotFoundError
+from azure.identity import ManagedIdentityCredential
+from azure.keyvault.secrets import SecretClient
+
+
+# Project root and environment
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
+
+
+# Azure Key Vault configuration
+VAULT_URL = os.getenv(
+    "KEY_VAULT_URL",
+    "https://tclkeyvaultinfosec.vault.azure.net"
+)
+
+CLIENT_SECRET_KEY = os.getenv("CLIENT_SECRET_KEY", "")
+is_dev = os.getenv("ENV", "DEV").upper() == "DEV"
+
+
+def get_keyvault_client():
+    credential = ManagedIdentityCredential()
+    return SecretClient(
+        vault_url=VAULT_URL,
+        credential=credential
+    )
+
+
+def get_secret(secret_type: Literal["client_secret"]):
+    match secret_type:
+        case "client_secret":
+            if is_dev:
+                client_secret = os.getenv("AUTH_CLIENT_SECRET")
+            else:
+                client = get_keyvault_client()
+
+                try:
+                    client_secret = client.get_secret(
+                        CLIENT_SECRET_KEY
+                    ).value
+                except ResourceNotFoundError as exc:
+                    raise RuntimeError(
+                        f"Secret '{CLIENT_SECRET_KEY}' not found in Key Vault"
+                    ) from exc
+
+            if not client_secret:
+                raise RuntimeError(
+                    f"Client Secret not found in "
+                    f"{'env' if is_dev else 'vault'}"
+                )
+
+            return client_secret
+
+        case _:
+            raise ValueError("Invalid Secret Type passed")
+
 
 # Directories
 ASSESSMENTS_DIR = PROJECT_ROOT / "assessments"
 ASSESSMENTS_DIR.mkdir(exist_ok=True)
 
+
 # App settings
 APP_NAME = "TPRM AI Assessment Platform"
 APP_VERSION = "1.0.0"
-HOST  = os.getenv("TPRM_HOST",  "127.0.0.1")
-PORT  = int(os.getenv("TPRM_PORT", "8085"))
+
+HOST = os.getenv("TPRM_HOST", "127.0.0.1")
+PORT = int(os.getenv("TPRM_PORT", "8085"))
 DEBUG = os.getenv("TPRM_DEBUG", "false").lower() == "true"
 
-# SECRET_KEY — used for signing; auto-generated if not set in .env
-import secrets as _secrets
+
+# SECRET_KEY
 SECRET_KEY = os.getenv("SECRET_KEY") or _secrets.token_hex(32)
 
-# Azure AD SSO — credentials read from .env
-SSO_ENABLED      = os.getenv("SSO_ENABLED", "true").lower() == "true"
-SSO_CLIENT_ID    = os.getenv("CLIENT_ID", "").strip()
-SSO_CLIENT_SECRET = os.getenv("CLIENT_SECRET", "").strip()
-SSO_TENANT_ID    = os.getenv("TENANT_ID", "").strip()
-SSO_REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8085/auth/callback")
-SSO_AUTHORITY    = f"https://login.microsoftonline.com/{SSO_TENANT_ID}" if SSO_TENANT_ID else ""
-SSO_SCOPES       = [
-    "api://46ecea3c-9158-403d-bbc1-151157e182ea/access_as_user",  # Titan AI Gateway
+
+# Azure AD SSO
+SSO_ENABLED = os.getenv("SSO_ENABLED", "true").lower() == "true"
+SSO_CLIENT_ID = os.getenv("CLIENT_ID", "").strip()
+SSO_CLIENT_SECRET = get_secret("client_secret")
+SSO_TENANT_ID = os.getenv("TENANT_ID", "").strip()
+
+SSO_REDIRECT_URI = os.getenv(
+    "REDIRECT_URI",
+    "http://localhost:8085/auth/callback"
+)
+
+SSO_AUTHORITY = (
+    f"https://login.microsoftonline.com/{SSO_TENANT_ID}"
+    if SSO_TENANT_ID
+    else ""
+)
+
+SSO_SCOPES = [
+    "api://46ecea3c-9158-403d-bbc1-151157e182ea/access_as_user",
 ]
 
 # ── Assessment Pipeline Feature Flags ──────────────────────────────────────────

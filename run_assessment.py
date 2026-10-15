@@ -895,7 +895,8 @@ def run_pipeline(args):
 
     for qf in q_files:
         logger.info("Extracting text from %s", qf.name)
-        text = extract_text(str(qf))
+        text = extract_text(str(qf))  or ""
+
         if not text.strip():
             logger.warning("No text extracted from %s — skipping", qf.name)
             continue
@@ -948,7 +949,7 @@ def run_pipeline(args):
     if PRE_ASSESSMENT_DIR.exists():
         pa_files = discover_files(PRE_ASSESSMENT_DIR, {".pdf", ".docx", ".txt"})
         for paf in pa_files:
-            text = extract_text(str(paf))
+            text = extract_text(str(paf)) or ""
             if text.strip():
                 pre_assessment = {
                     "file_name": paf.name,

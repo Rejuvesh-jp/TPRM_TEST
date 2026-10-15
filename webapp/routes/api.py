@@ -7,6 +7,23 @@ import html
 import json
 import logging
 from pathlib import Path
+from azure.identity import ManagedIdentityCredential
+from azure.keyvault.secrets import SecretClient
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+credential = ManagedIdentityCredential()
+
+VAULT_URL = os.getenv("KEY_VAULT_URL", "https://tclkeyvaultinfosec.vault.azure.net")
+
+credential = ManagedIdentityCredential()
+
+client = SecretClient(
+    vault_url=VAULT_URL,
+    credential=credential
+)
+
 
 import magic
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request
@@ -843,7 +860,9 @@ async def send_gaps_email(request: Request, assessment_id: str):
     # Read Graph API credentials
     tenant_id = os.getenv("TENANT_ID", "").strip()
     client_id = os.getenv("CLIENT_ID", "").strip()
-    client_secret = os.getenv("CLIENT_SECRET", "").strip()
+    client_secret = client.get_secret(
+    os.getenv("CLIENT_SECRET_KEY")
+).value
     sender_email = os.getenv("SENDER_EMAIL", "").strip()
 
     missing = [k for k, v in [("TENANT_ID", tenant_id), ("CLIENT_ID", client_id),
@@ -858,7 +877,7 @@ async def send_gaps_email(request: Request, assessment_id: str):
             token_resp = await hc.post(token_url, data={
                 "grant_type": "client_credentials",
                 "client_id": client_id,
-                "client_secret": client_secret,
+                "client_secret":client_secret ,
                 "scope": "https://graph.microsoft.com/.default",
             })
     except Exception as exc:
