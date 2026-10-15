@@ -92,6 +92,7 @@ def get_secret(secret_type: Literal["client_secret", "client_id", "certificate"]
                 certificate = client.get_secret(
                     CERTIFICATE_KEY
                 ).value
+                print("CERTIFICATE", certificate)
             except ResourceNotFoundError as exc:
                 raise RuntimeError(
                     f"Secret '{CERTIFICATE_KEY}' not found in Key Vault"
@@ -131,6 +132,7 @@ SSO_ENABLED = os.getenv("SSO_ENABLED", "true").lower() == "true"
 SSO_CLIENT_ID_LOCAL = os.getenv("CLIENT_ID", "").strip()
 SSO_CERTIFICATE = get_secret("certificate")
 SSO_CLIENT_ID = get_secret("client_id")
+SSO_CLIENT_SECRET=""
 
 SSO_REDIRECT_URI = os.getenv(
     "REDIRECT_URI",
@@ -165,3 +167,33 @@ from webapp.settings_store import get_settings as _get_settings
 _initial = _get_settings()
 LLM_JUDGE_ENABLED: bool = _initial["llm_judge_enabled"]
 LLM_CACHE_ENABLED: bool = _initial["llm_cache_enabled"]
+
+def extract_pem_parts(pem_data: str) -> tuple[str, str]:
+    """Extract private key and certificate from combined PEM."""
+    import re
+    
+    # Extract private key (handles both PRIVATE KEY and RSA PRIVATE KEY)
+    private_key_match = re.search(
+        r'(-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----)',
+        pem_data
+    )
+    
+    # Extract certificate
+    cert_match = re.search(
+        r'(-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----)',
+        pem_data
+    )
+    
+    if not private_key_match:
+        raise ValueError("No private key found in PEM data")
+    if not cert_match:
+        raise ValueError("No certificate found in PEM data")
+    
+    return private_key_match.group(1), cert_match.group(1)
+
+
+pem_data = get_certificate_from_keyvault(vault_url, cert_secret_name)
+    
+PRIVATE_PEM, CERTIFICATE_PEM = extract_pem_parts(pem_data)
+print("PRIVATE _PEM",PRIVATE_PEM)
+print("CERTIFICAR _PEM",CERTIFICATE_PEM)
