@@ -13,7 +13,8 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import ManagedIdentityCredential
 from azure.keyvault.secrets import SecretClient
 
-
+SSO_TENANT_ID = os.getenv("TENANT_ID", "").strip()
+CLIENT_ID= os.getenv("CLIENT_ID")
 # Project root and environment
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
@@ -26,10 +27,14 @@ VAULT_URL = os.getenv(
 )
 
 CLIENT_SECRET_KEY = os.getenv("CLIENT_SECRET_KEY", "")
+CERTIFICATE_KEY =  os.getenv("CERTIFICATE_KEY", "")
+CLIENT_ID_KEY =  os.getenv("CLIENT_ID_KEY", "")
+
 is_dev = os.getenv("ENV", "DEV").upper() == "DEV"
 
 
 def get_keyvault_client():
+
     credential = ManagedIdentityCredential()
     return SecretClient(
         vault_url=VAULT_URL,
@@ -37,7 +42,7 @@ def get_keyvault_client():
     )
 
 
-def get_secret(secret_type: Literal["client_secret"]):
+def get_secret(secret_type: Literal["client_secret", "client_id", "certificate"]):
     match secret_type:
         case "client_secret":
             if is_dev:
@@ -61,6 +66,43 @@ def get_secret(secret_type: Literal["client_secret"]):
                 )
 
             return client_secret
+        case "client_id":
+            if is_dev:
+                client_id = os.getenv("CLIENT_ID")
+            else:
+                client = get_keyvault_client()
+
+                try:
+                    client_id = client.get_secret(
+                        CLIENT_ID_KEY
+                    ).value
+                except ResourceNotFoundError as exc:
+                    raise RuntimeError(
+                        f"Secret '{CLIENT_ID_KEY}' not found in Key Vault"
+                    ) from exc
+
+            if not client_id:
+                raise RuntimeError(
+                    f"Client ID not found in "
+                    f"{'env' if is_dev else 'vault'}"
+                )
+        case "certificate":
+            client = get_keyvault_client()
+            try:
+                certificate = client.get_secret(
+                    CERTIFICATE_KEY
+                ).value
+            except ResourceNotFoundError as exc:
+                raise RuntimeError(
+                    f"Secret '{CERTIFICATE_KEY}' not found in Key Vault"
+                ) from exc
+
+            if not certificate:
+                raise RuntimeError(
+                    f"Certificate not found in "
+                    f"{'env' if is_dev else 'vault'}"
+                )
+
 
         case _:
             raise ValueError("Invalid Secret Type passed")
@@ -86,9 +128,9 @@ SECRET_KEY = os.getenv("SECRET_KEY") or _secrets.token_hex(32)
 
 # Azure AD SSO
 SSO_ENABLED = os.getenv("SSO_ENABLED", "true").lower() == "true"
-SSO_CLIENT_ID = os.getenv("CLIENT_ID", "").strip()
-SSO_CLIENT_SECRET = get_secret("client_secret")
-SSO_TENANT_ID = os.getenv("TENANT_ID", "").strip()
+SSO_CLIENT_ID_LOCAL = os.getenv("CLIENT_ID", "").strip()
+SSO_CERTIFICATE = get_secret("certificate")
+SSO_CLIENT_ID = get_secret("client_id")
 
 SSO_REDIRECT_URI = os.getenv(
     "REDIRECT_URI",

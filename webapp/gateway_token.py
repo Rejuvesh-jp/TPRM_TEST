@@ -53,7 +53,7 @@ def get_shared_msal_app():
         if _msal_app is None:
             import msal
             import requests
-            from webapp.config import SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_AUTHORITY
+            from webapp.config import SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_AUTHORITY, SSO_CERTIFICATE
 
             _ssl_verify: bool | str = True
             _ca_env = os.getenv("REQUESTS_CA_BUNDLE") or os.getenv("CURL_CA_BUNDLE")
@@ -158,7 +158,10 @@ def _fetch_client_credentials_token() -> tuple[str | None, float]:
         app = msal.ConfidentialClientApplication(
             SSO_CLIENT_ID,
             authority=SSO_AUTHORITY,
-            client_credential=SSO_CLIENT_SECRET,
+            client_credential={
+                    "private_key": SSO_CERTIFICATE,
+                    "publick_key": SSO_CERTIFICATE
+                }
             http_client=_http,
         )
         result = app.acquire_token_for_client(scopes=GATEWAY_SCOPE)
