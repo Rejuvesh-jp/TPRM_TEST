@@ -53,8 +53,7 @@ def get_shared_msal_app():
         if _msal_app is None:
             import msal
             import requests
-            from webapp.config import SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_AUTHORITY, SSO_CERTIFICATE, PRIVATE_PEM, CERTIFICATE_PEM
-
+            from webapp.config import SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_AUTHORITY, SSO_CERTIFICATE
             _ssl_verify: bool | str = True
             _ca_env = os.getenv("REQUESTS_CA_BUNDLE") or os.getenv("CURL_CA_BUNDLE")
             if _ca_env:
@@ -70,8 +69,8 @@ def get_shared_msal_app():
                 SSO_CLIENT_ID,
                 authority=SSO_AUTHORITY,
                 client_credential={
-                    "private_key": PRIVATE_PEM,
-                    "publick_key": CERTIFICATE_PEM
+                    "private_key": SSO_CERTIFICATE,
+                    "public_certificate": SSO_CERTIFICATE
                 },
                 http_client=_http,
             )
@@ -159,8 +158,8 @@ def _fetch_client_credentials_token() -> tuple[str | None, float]:
             SSO_CLIENT_ID,
             authority=SSO_AUTHORITY,
             client_credential={
-                    "private_key": PRIVATE_PEM,
-                    "publick_key": CERTIFICATE_PEM
+                    "private_key": SSO_CERTIFICATE,
+                    "public_certificate": SSO_CERTIFICATE
                 },
             http_client=_http,
         )

@@ -13,7 +13,8 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import ManagedIdentityCredential
 from azure.keyvault.secrets import SecretClient
 
-SSO_TENANT_ID = os.getenv("TENANT_ID", "").strip()
+SSO_TENANT_ID = os.getenv("TENANT_ID", "7cc91c38-648e-4ce2-a4e4-517ae39fc189").strip()
+print("TENANT_ID",SSO_TENANT_ID)
 CLIENT_ID= os.getenv("CLIENT_ID")
 # Project root and environment
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -86,13 +87,15 @@ def get_secret(secret_type: Literal["client_secret", "client_id", "certificate"]
                     f"Client ID not found in "
                     f"{'env' if is_dev else 'vault'}"
                 )
+            print("CLIENT_ID",client_id)
+            return client_id
+            
         case "certificate":
             client = get_keyvault_client()
             try:
                 certificate = client.get_secret(
                     CERTIFICATE_KEY
                 ).value
-                print("CERTIFICATE", certificate)
             except ResourceNotFoundError as exc:
                 raise RuntimeError(
                     f"Secret '{CERTIFICATE_KEY}' not found in Key Vault"
@@ -103,7 +106,7 @@ def get_secret(secret_type: Literal["client_secret", "client_id", "certificate"]
                     f"Certificate not found in "
                     f"{'env' if is_dev else 'vault'}"
                 )
-
+            return certificate
 
         case _:
             raise ValueError("Invalid Secret Type passed")
@@ -144,7 +147,7 @@ SSO_AUTHORITY = (
     if SSO_TENANT_ID
     else ""
 )
-
+print("SSO_AUTHORITUY", SSO_AUTHORITY)
 SSO_SCOPES = [
     "api://46ecea3c-9158-403d-bbc1-151157e182ea/access_as_user",
 ]
@@ -168,32 +171,5 @@ _initial = _get_settings()
 LLM_JUDGE_ENABLED: bool = _initial["llm_judge_enabled"]
 LLM_CACHE_ENABLED: bool = _initial["llm_cache_enabled"]
 
-def extract_pem_parts(pem_data: str) -> tuple[str, str]:
-    """Extract private key and certificate from combined PEM."""
-    import re
-    
-    # Extract private key (handles both PRIVATE KEY and RSA PRIVATE KEY)
-    private_key_match = re.search(
-        r'(-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA )?PRIVATE KEY-----)',
-        pem_data
-    )
-    
-    # Extract certificate
-    cert_match = re.search(
-        r'(-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----)',
-        pem_data
-    )
-    
-    if not private_key_match:
-        raise ValueError("No private key found in PEM data")
-    if not cert_match:
-        raise ValueError("No certificate found in PEM data")
-    
-    return private_key_match.group(1), cert_match.group(1)
 
-
-pem_data = get_secret("certificate")
     
-PRIVATE_PEM, CERTIFICATE_PEM = extract_pem_parts(pem_data)
-print("PRIVATE _PEM",PRIVATE_PEM)
-print("CERTIFICAR _PEM",CERTIFICATE_PEM)
