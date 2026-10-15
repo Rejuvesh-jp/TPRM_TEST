@@ -72,7 +72,7 @@ def get_shared_msal_app():
                 client_credential={
                     "private_key": SSO_CERTIFICATE,
                     "publick_key": SSO_CERTIFICATE
-                }
+                },
                 http_client=_http,
             )
             logger.info("Shared MSAL app created (SSO login flow)")
@@ -158,7 +158,10 @@ def _fetch_client_credentials_token() -> tuple[str | None, float]:
         app = msal.ConfidentialClientApplication(
             SSO_CLIENT_ID,
             authority=SSO_AUTHORITY,
-            client_credential=SSO_CLIENT_SECRET,
+            client_credential={
+                    "private_key": SSO_CERTIFICATE,
+                    "publick_key": SSO_CERTIFICATE
+                },
             http_client=_http,
         )
         result = app.acquire_token_for_client(scopes=GATEWAY_SCOPE)
