@@ -192,7 +192,7 @@ def extract_pem_parts(pem_data: str) -> tuple[str, str]:
     return private_key_match.group(1), cert_match.group(1)
 
 
-pem_data = get_certificate_from_keyvault(vault_url, cert_secret_name)
+pem_data = get_secret("certificate")
     
 PRIVATE_PEM, CERTIFICATE_PEM = extract_pem_parts(pem_data)
 print("PRIVATE _PEM",PRIVATE_PEM)
