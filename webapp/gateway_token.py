@@ -128,7 +128,7 @@ def _get_headless_token() -> str:
                 token,
             )
         else:
-            logger.error(
+            logger.exception(
                 "Failed to acquire headless gateway token — falling back to static OPENAI_API_KEY"
             )
             return os.getenv("OPENAI_API_KEY", "")
@@ -145,7 +145,7 @@ def _fetch_client_credentials_token() -> tuple[str | None, float]:
     try:
         import msal
         import requests as _requests
-        from webapp.config import SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_AUTHORITY
+        from webapp.config import SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_AUTHORITY, SSO_CERTIFICATE
 
         _ssl_verify: bool | str = True
         _ca_env = os.getenv("REQUESTS_CA_BUNDLE") or os.getenv("CURL_CA_BUNDLE")
