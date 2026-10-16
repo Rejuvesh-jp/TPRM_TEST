@@ -26,6 +26,8 @@ VAULT_URL = os.getenv(
     "KEY_VAULT_URL",
     "https://tclkeyvaultinfosec.vault.azure.net"
 )
+CERTIFICATE_KEY = os.getenv("CERTIFICATE_KEY", "your-keyvault-secret-name")
+
 
 CLIENT_SECRET_KEY = os.getenv("CLIENT_SECRET_KEY", "")
 CERTIFICATE_KEY =  os.getenv("CERTIFICATE_KEY", "")
