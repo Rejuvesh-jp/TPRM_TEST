@@ -392,7 +392,7 @@ async function setRiskRating(rating) {
     <li class="nav-item" role="presentation">
         <button class="nav-link active" id="gaps-tab" data-bs-toggle="tab"
                 data-bs-target="#gaps" type="button" role="tab">
-            <i class="bi bi-exclamation-diamond me-1"></i>Gaps <span class="badge bg-danger ms-1" id="gaps-tab-badge">{{ gaps|length }}</span>
+            <i class="bi bi-exclamation-diamond me-1"></i>Gaps <span class="badge bg-danger ms-1" id="gaps-tab-badge">{{ open_gap_count }}</span>
         </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -426,7 +426,7 @@ async function setRiskRating(rating) {
     <div class="tab-pane fade show active" id="gaps" role="tabpanel">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-transparent d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h5 class="mb-0">Identified Gaps <span class="text-muted fs-6 fw-normal" id="gap-count-badge">({{ gaps|length }})</span></h5>
+                <h5 class="mb-0">Identified Gaps <span class="text-muted fs-6 fw-normal" id="gap-count-badge">({{ open_gap_count }})</span></h5>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <div class="btn-group btn-group-sm" role="group" aria-label="Gap filter" id="gap-filter-group">
                         <button type="button" class="btn btn-outline-secondary active" onclick="filterGaps('all')" data-filter="all">All</button>
@@ -1245,14 +1245,32 @@ function filterGaps(status) {
 function _applyGapFilters() {
     const statusFilter = document.querySelector('#gap-filter-group button.active')?.dataset?.filter || 'all';
     const rows = document.getElementById('gaps-tbody').querySelectorAll('tr');
-    let visible = 0;
     rows.forEach(tr => {
         const rowStatus = tr.dataset.gapStatus || 'open';
         const statusOk = statusFilter === 'all' || rowStatus === statusFilter;
         tr.style.display = statusOk ? '' : 'none';
-        if (statusOk) visible++;
     });
-    document.getElementById('gap-count-badge').textContent = '(' + visible + ')';
+    _updateGapCounts();
+}
+
+// "Identified Gaps" always reflects the number of OPEN gaps. Closed gaps stay
+// in the table (and are reachable via the Closed filter) for audit purposes,
+// but they are not counted.
+function _updateGapCounts(openCount) {
+    const tbody = document.getElementById('gaps-tbody');
+    if (!tbody) return;
+    let openN = openCount;
+    if (typeof openN !== 'number') {
+        openN = 0;
+        tbody.querySelectorAll('tr').forEach(tr => {
+            // Gaps with no status set are open (same rule as the server)
+            if ((tr.dataset.gapStatus || 'open') !== 'closed') openN++;
+        });
+    }
+    const badge = document.getElementById('gap-count-badge');
+    if (badge) badge.textContent = `(${openN})`;
+    const tabBadge = document.getElementById('gaps-tab-badge');
+    if (tabBadge) tabBadge.textContent = openN;
 }
 
 
@@ -1310,6 +1328,9 @@ function closeGap(gapId) {
         // Remove toggle button
         const toggleBtn = document.getElementById(`gap-toggle-${gapId}`);
         if (toggleBtn) toggleBtn.remove();
+
+        // Reduce the identified-gaps count (server value is authoritative)
+        _updateGapCounts(result.open_gaps);
 
         // Remove all linked recommendations and remedial plans from DOM
         const linkedRecs = document.querySelectorAll(`#recommendations-container [data-gap-id="${gapId}"]`);
@@ -1511,10 +1532,8 @@ async function deleteGap(id) {
     _rebuildSeverityBadges();
     _updateRemedialCount();
     
-    // Update identified gaps count in both locations
-    const totalGaps = document.getElementById('gaps-tbody').querySelectorAll('tr').length;
-    document.getElementById('gap-count-badge').textContent = `(${totalGaps})`;
-    document.getElementById('gaps-tab-badge').textContent = totalGaps;
+    // Update identified gaps count in both locations (open gaps only)
+    _updateGapCounts();
     
     // Update recommendation counts
     const recN = document.getElementById('recommendations-container').querySelectorAll('.recommendation-card').length;
@@ -1621,6 +1640,7 @@ async function saveAddGap() {
         </td>`;
     tbody.appendChild(tr);
     _rebuildSeverityBadges();
+    _updateGapCounts();
     bootstrap.Modal.getInstance(document.getElementById('addGapModal')).hide();
 }
 

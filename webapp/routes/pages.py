@@ -192,6 +192,7 @@ async def assessment_detail(request: Request, assessment_id: str):
 
     report = None
     gaps = []
+    open_gap_count = 0
     recommendations = []
     remedial_plan = []
     input_counts = storage.get_input_file_counts(assessment_id)
@@ -202,6 +203,8 @@ async def assessment_detail(request: Request, assessment_id: str):
         if report:
             all_gaps = report.get("gaps", [])
             gaps = all_gaps  # Show all gaps (open and closed)
+            # Headline "Identified Gaps" count excludes closed gaps
+            open_gap_count = sum(1 for g in all_gaps if g.get("gap_status", "open") == "open")
             remedial_plan = report.get("remedial_plan", [])
             recommendations = report.get("recommendations", [])
         # Load questions from pipeline step 1 output
@@ -222,6 +225,7 @@ async def assessment_detail(request: Request, assessment_id: str):
         meta=meta,
         report=report,
         gaps=gaps,
+        open_gap_count=open_gap_count,
         remedial_plan=remedial_plan,
         recommendations=recommendations,
         input_counts=input_counts,

@@ -423,8 +423,7 @@ async def toggle_gap_status(request: Request, assessment_id: str, gap_id: str):
             # unlink this gap — delete only when no linked gaps remain open.
             surviving_recs = []
             removed_recs = 0
-            open_gap_ids = {g2["id"] for g2 in report.get("gaps", [])
-                           if g2.get("gap_status") != "closed"}
+            open_gap_ids = {g2.get("id") for g2 in _open_gaps(report)}
             for r in report.get("recommendations", []):
                 gap_ids = r.get("gap_ids", [r.get("gap_id")])
                 if gap_id in gap_ids:
@@ -448,7 +447,11 @@ async def toggle_gap_status(request: Request, assessment_id: str, gap_id: str):
                 "id": gap_id, 
                 "gap_status": "closed",
                 "removed_recommendations": removed_recs,
-                "removed_remedial_actions": removed_rem
+                "removed_remedial_actions": removed_rem,
+                # Authoritative post-close counts for the UI badges
+                "open_gaps": report["summary"]["total_gaps"],
+                "total_recommendations": report["summary"]["total_recommendations"],
+                "total_remedial_actions": report["summary"]["total_remedial_actions"],
             })
     
     raise HTTPException(404, "Gap not found")
@@ -530,13 +533,27 @@ async def update_recommendation(request: Request, assessment_id: str, rec_id: st
     raise HTTPException(404, "Recommendation not found")
 
 
+def _open_gaps(report: dict) -> list:
+    """Return only the gaps that are still open.
+
+    Gaps without an explicit ``gap_status`` (every gap produced by the
+    pipeline) are treated as open. Closed gaps stay in ``report["gaps"]``
+    for audit purposes but must not be counted as identified gaps.
+    """
+    return [g for g in report.get("gaps", []) if g.get("gap_status", "open") == "open"]
+
+
 def _refresh_summary(report: dict):
-    """Recalculate gap, remedial plan and recommendation summary counts after edits."""
+    """Recalculate gap, remedial plan and recommendation summary counts after edits.
+
+    Headline counts reflect *open* gaps only, so closing a gap reduces the
+    identified-gap figures shown on the detail page, dashboard and analytics.
+    """
     from collections import Counter
-    gaps = report.get("gaps", [])
-    sev_counts = Counter(g.get("severity", "medium") for g in gaps)
+    open_gaps = _open_gaps(report)
+    sev_counts = Counter(g.get("severity", "medium") for g in open_gaps)
     report.setdefault("summary", {})["gap_severity"] = dict(sev_counts)
-    report["summary"]["total_gaps"] = len(gaps)
+    report["summary"]["total_gaps"] = len(open_gaps)
     report["summary"]["total_remedial_actions"] = len(report.get("remedial_plan", []))
     report["summary"]["total_recommendations"] = len(report.get("recommendations", []))
 
