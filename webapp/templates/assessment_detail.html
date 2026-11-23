@@ -1253,24 +1253,35 @@ function _applyGapFilters() {
     _updateGapCounts();
 }
 
-// "Identified Gaps" always reflects the number of OPEN gaps. Closed gaps stay
-// in the table (and are reachable via the Closed filter) for audit purposes,
-// but they are not counted.
-function _updateGapCounts(openCount) {
+// Count the gap rows by status. Gaps with no status set are open
+// (same rule as the server).
+function _gapStatusCounts() {
+    const counts = { open: 0, closed: 0 };
     const tbody = document.getElementById('gaps-tbody');
-    if (!tbody) return;
-    let openN = openCount;
-    if (typeof openN !== 'number') {
-        openN = 0;
-        tbody.querySelectorAll('tr').forEach(tr => {
-            // Gaps with no status set are open (same rule as the server)
-            if ((tr.dataset.gapStatus || 'open') !== 'closed') openN++;
-        });
-    }
-    const badge = document.getElementById('gap-count-badge');
-    if (badge) badge.textContent = `(${openN})`;
+    if (!tbody) return counts;
+    tbody.querySelectorAll('tr').forEach(tr => {
+        if ((tr.dataset.gapStatus || 'open') === 'closed') counts.closed++;
+        else counts.open++;
+    });
+    return counts;
+}
+
+// The Gaps tab badge always shows OPEN gaps. The "Identified Gaps" badge
+// follows the active filter, so Open shows the open count and Closed shows
+// the closed count. Closed gaps stay in the table for audit purposes.
+// Pass openCount to use the server's authoritative open-gap figure.
+function _updateGapCounts(openCount) {
+    const counts = _gapStatusCounts();
+    if (typeof openCount === 'number') counts.open = openCount;
+
     const tabBadge = document.getElementById('gaps-tab-badge');
-    if (tabBadge) tabBadge.textContent = openN;
+    if (tabBadge) tabBadge.textContent = counts.open;
+
+    const filter = document.querySelector('#gap-filter-group button.active')
+        ?.dataset?.filter || 'all';
+    const shown = filter === 'closed' ? counts.closed : counts.open;
+    const badge = document.getElementById('gap-count-badge');
+    if (badge) badge.textContent = `(${shown})`;
 }
 
 
