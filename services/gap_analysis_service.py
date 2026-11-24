@@ -14,9 +14,25 @@ from services.embedding_service import similarity_search
 
 # Namespace for deterministic UUID generation (same content → same ID every run)
 _NS = uuid.UUID('a3bb189e-8bf9-3888-9912-ace4e6543002')
-from services.questionnaire_parser import INFO_ONLY_SECTIONS
+from services.questionnaire_parser import is_info_only_section
 
 logger = logging.getLogger("tprm.gap_analysis")
+
+# Questionnaire sources that are reference-only and must never produce
+# identified gaps. The Pre-Business Assessment is used to score engagement
+# sensitivity, not to assess vendor security controls.
+REFERENCE_ONLY_SOURCES = frozenset({"pre_business_assessment"})
+
+
+def is_excluded_from_gap_analysis(q: dict) -> bool:
+    """True if a question must never produce an identified gap.
+
+    Covers Pre-Business Assessment questions (reference only) and
+    informational sections such as Business Information or Documentation.
+    """
+    if q.get("source_type") in REFERENCE_ONLY_SOURCES:
+        return True
+    return is_info_only_section(q.get("section"))
 
 
 def run_gap_analysis(questions: list[dict], artifacts: list[dict],
@@ -43,7 +59,7 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
     searched_questions = 0
 
     for q in questions:
-        if q.get("section") in INFO_ONLY_SECTIONS:
+        if is_excluded_from_gap_analysis(q):
             continue
         searched_questions += 1
         query_text = f"{q['section']}: {q['question_text']}"
@@ -128,9 +144,12 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
     logger.info("Passing %d artifact insight summaries to gap analysis",
                 sum(1 for a in artifacts if a.get("insights")))
 
-    # Build list of valid control IDs so the LLM can reference them
+    # Build list of valid control IDs so the LLM can reference them.
+    # Reference-only (Pre-Business Assessment) and informational questions are
+    # excluded so gaps can never be auto-mapped onto them.
     _all_control_ids = sorted(set(
-        q["control_id"] for q in questions if q.get("control_id")
+        q["control_id"] for q in questions
+        if q.get("control_id") and not is_excluded_from_gap_analysis(q)
     ))
 
     # Detect truly unanswered questions (no response at all).
@@ -156,7 +175,7 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
     _unanswered_ids = sorted(set(
         q["control_id"] for q in questions
         if q.get("control_id") and _is_unanswered(q)
-        and q.get("section") not in INFO_ONLY_SECTIONS
+        and not is_excluded_from_gap_analysis(q)
     ))
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -240,7 +259,7 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
     # Collect answered + N/A questions (truly unanswered handled in Phase 1)
     _answered_questions = [
         q for q in questions
-        if not _is_unanswered(q) and q.get("section") not in INFO_ONLY_SECTIONS
+        if not _is_unanswered(q) and not is_excluded_from_gap_analysis(q)
     ]
 
     # Group by section, preserving order
@@ -466,7 +485,7 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
     _q_embed_map: dict[str, list] = {}
     for q in questions:
         cid = q.get("control_id", "")
-        if cid and q.get("section") not in INFO_ONLY_SECTIONS:
+        if cid and not is_excluded_from_gap_analysis(q):
             _q_text_map[cid] = (q.get("question_text") or "").lower()
             if q.get("question_embedding"):
                 _q_embed_map[cid] = q["question_embedding"]
@@ -726,6 +745,25 @@ def run_gap_analysis(questions: list[dict], artifacts: list[dict],
 
     # Combine: deterministic first, then LLM evidence gaps
     all_gaps = deterministic_gaps + filtered_llm_gaps
+
+    # ── Safety net: drop any gap tied to a reference-only or informational
+    # question. Those questions are already excluded upstream, so this only
+    # catches gaps the LLM invented against a control ID it was not given.
+    _excluded_qids = {
+        _normalize_qid(q["control_id"]) for q in questions
+        if q.get("control_id") and is_excluded_from_gap_analysis(q)
+    }
+    if _excluded_qids:
+        _before_excl = len(all_gaps)
+        all_gaps = [
+            g for g in all_gaps
+            if _normalize_qid(g.get("related_question_id") or "") not in _excluded_qids
+        ]
+        if len(all_gaps) != _before_excl:
+            logger.info(
+                "[FILTER] Removed %d gap(s) mapped to reference-only/informational questions",
+                _before_excl - len(all_gaps),
+            )
 
     # Final sort: severity → question_id → description
     _severity_rank_final = {"critical": 0, "high": 1, "medium": 2, "low": 3}

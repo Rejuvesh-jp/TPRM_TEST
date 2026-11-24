@@ -530,6 +530,11 @@ def _run_pipeline_inner(assessment_id, meta, use_openai, vendor_name_hint,
         parsed = parse_generic_questionnaire(text, llm_fn, pf.name)
         questions = build_questions_with_embeddings(parsed, embed_fn, embed_batch_fn)
 
+        # Mark these as reference-only: the Pre-Business Assessment drives
+        # engagement sensitivity scoring and must never produce identified gaps.
+        for question in questions:
+            question["source_type"] = "pre_business_assessment"
+
         all_control_ids = get_all_control_ids(parsed)
         a_prompt = render_prompt(
             "questionnaire_analysis",
